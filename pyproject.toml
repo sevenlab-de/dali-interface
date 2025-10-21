@@ -1,0 +1,36 @@
+[project]
+name = "dali-interface"
+description = "A common API for different hardware realizations of a DALI interface."
+authors = [{ name = "Sven Hädrich", email = "sven.haedrich@sevenlab.de" }]
+readme = "README.md"
+license = "MIT"
+dynamic = ["version"]
+dependencies = [
+    "typeguard >= 4.4.4, < 5.0.0", # This library adheres to Semantic Versioning 2.0.
+    "pyusb == 1.3.1",              # No information on versioning schema, using fixed version.
+    "pyserial == 3.5",             # No information on versioning schema, using fixed version.
+]
+
+[project.optional-dependencies]
+dev = [
+    "types-pyserial",
+]
+
+[project.urls]
+source = "https://github.com/SvenHaedrich/dali_interface"
+issues = "https://github.com/SvenHaedrich/dali_interface"
+
+[build-system]
+requires = ["hatchling", "versioningit"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "versioningit"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/dali_interface"]
+
+[tool.hatch.build.targets.sdist]
+exclude = [".github/"]
+
+[tool.versioningit]
