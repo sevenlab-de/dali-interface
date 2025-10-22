@@ -4,9 +4,9 @@ import errno
 import logging
 import struct
 import time
-from typing import Final
+from typing import Final, Generator
 
-import usb
+import usb  # type: ignore
 from typeguard import typechecked
 
 from .dali_interface import DaliFrame, DaliInterface, DaliStatus
@@ -83,7 +83,10 @@ class DaliUsb(DaliInterface):  # pylint: disable=too-many-instance-attributes
         self.last_transmit: int | None = None
 
         logger.debug("try to discover DALI interfaces")
-        devices = list(usb.core.find(find_all=True, idVendor=vendor, idProduct=product))
+        devices = usb.core.find(find_all=True, idVendor=vendor, idProduct=product)
+        # using find_all=True should always return a generator
+        assert isinstance(devices, Generator)
+        devices = list(devices)
 
         # if not found
         if devices:
@@ -108,16 +111,20 @@ class DaliUsb(DaliInterface):  # pylint: disable=too-many-instance-attributes
             interface = cfg[(0, 0)]  # type: ignore
 
             # get read and write endpoints
-            self.ep_write = usb.util.find_descriptor(
+            ep_write = usb.util.find_descriptor(
                 interface,
                 custom_match=lambda e: usb.util.endpoint_direction(e.bEndpointAddress)
                 == usb.util.ENDPOINT_OUT,
             )
-            self.ep_read = usb.util.find_descriptor(
+            assert ep_write is None or isinstance(ep_write, usb.core.Endpoint)
+            self.ep_write = ep_write
+            ep_read = usb.util.find_descriptor(
                 interface,
                 custom_match=lambda e: usb.util.endpoint_direction(e.bEndpointAddress)
                 == usb.util.ENDPOINT_IN,
             )
+            assert ep_read is None or isinstance(ep_read, usb.core.Endpoint)
+            self.ep_read = ep_read
             if not self.ep_read or not self.ep_write:
                 logger.info(
                     f"could not determine read or write endpoint on {self.device}"
@@ -225,7 +232,10 @@ class DaliUsb(DaliInterface):  # pylint: disable=too-many-instance-attributes
     def read_data(self) -> None:  # pylint: disable=too-many-branches
         """Read frame or event from USB DALI interface-"""
         try:
-            usb_data = self.ep_read.read(self.ep_read.wMaxPacketSize, timeout=100)
+            assert self.ep_read
+            usb_data = self.ep_read.read(
+                getattr(self.ep_read, "wMaxPacketSize"), timeout=100
+            )
             if usb_data:
                 read_type = usb_data[1]
                 self.receive_sequence_number = usb_data[8]
