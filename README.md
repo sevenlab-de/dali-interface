@@ -9,6 +9,9 @@ A common API for different hardware realizations of a DALI interface.
 * BEGA 71024
 * Serial based SevenLab Hardware
 
+**Note:** Using the serial interface on Windows may have higher latency. This can potentially be
+          improved by tweaking the serial driver config.
+
 ## API
 
 The interface classes implement the following API functions.
