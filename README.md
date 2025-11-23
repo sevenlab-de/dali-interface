@@ -4,10 +4,10 @@ A common API for different hardware realizations of a DALI interface.
 
 ## Supported Hardware
 
-* Lunatone 241 389 23DO
+* [Lunatone 241 389 23DO](https://www.lunatone.com/wp-content/uploads/2018/03/24138923_DALI_USB_GER_D0052-1.pdf)
 * Lunatone 241 389 23-30
-* BEGA 71024
-* Serial based SevenLab Hardware
+* [BEGA 71024](https://www.bega.com/en/products/light-control/dali-usb-interface-71024/)
+* [Serial based SevenLab Hardware](https://github.com/SvenHaedrich/kicad_dali_usb_lpc)
 
 **Note:** Using the serial interface on Windows may have higher latency. This can potentially be
           improved by tweaking the serial driver config.
