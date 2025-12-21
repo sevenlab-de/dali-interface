@@ -38,6 +38,26 @@ class DaliFrame(NamedTuple):
     status: int = DaliStatus.OK
     message: str = "OK"
 
+    def __repr__(self):
+        if self.status != DaliStatus.OK:
+            return f"<DaliFrame {self.status}>"
+        data = "<DaliFrame "
+        if self.length == 8:
+            data = data + f"0x{self.data:02X}"
+        elif self.length == 16:
+            data = data + f"0x{self.data:04X}"
+        elif self.length == 24:
+            data = data + f"0x{self.data:06X}"
+        elif self.length == 32:
+            data = data + f"0x{self.data:08X}"
+        else:
+            data = data + f"0x{self.data:08X} (unknown length)"
+        if self.send_twice:
+            data = data + " send-twice"
+        if self.priority != 0:
+            data = data + f" priority: {self.priority}>"
+        return data
+
 
 @typechecked
 class DaliInterface:
