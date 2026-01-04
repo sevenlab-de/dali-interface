@@ -75,7 +75,7 @@ class DaliInterface:
         Args:
             max_queue_size (int, optional): Length of input queue for frames read from DALI bus.
                 Defaults to 40.
-            start_receive (bool, optional): Start a thread that reads DAL frames from the bus
+            start_receive (bool, optional): Start a thread that reads DALI frames from the bus
                 and transfers them into the input queue.
                 Defaults to True.
         """
