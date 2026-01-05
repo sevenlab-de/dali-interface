@@ -9,8 +9,8 @@ A common API for different hardware realizations of a DALI interface.
 * [BEGA 71024](https://www.bega.com/en/products/light-control/dali-usb-interface-71024/)
 * [Serial based SevenLab Hardware](https://github.com/SvenHaedrich/kicad_dali_usb_lpc)
 
-**Note:** Using the serial interface on Windows may have higher latency. This can potentially be
-          improved by tweaking the serial driver config.
+>[!NOTE]
+>Using the serial interface on Windows may exhibit excessive latency. This can potentially be improved by tweaking the serial driver config.
 
 ## API
 

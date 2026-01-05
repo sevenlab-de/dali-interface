@@ -38,6 +38,29 @@ class DaliFrame(NamedTuple):
     status: int = DaliStatus.OK
     message: str = "OK"
 
+    def __repr__(self) -> str:
+        result = f"<{self.__class__.__module__}.{self.__class__.__name__} "
+        for field in DaliFrame._fields:
+            # pylint: disable=no-member
+            if self.__getattribute__(field) != self._field_defaults[field]:
+                # pylint: enable=no-member
+                if field == "data":
+                    if self.length == 8:
+                        result = result + f"data=0x{self.data:02X}, "
+                    elif self.length == 16:
+                        result = result + f"data=0x{self.data:04X}, "
+                    elif self.length == 24:
+                        result = result + f"data=0x{self.data:06X}, "
+                    elif self.length == 32:
+                        result = result + f"data=0x{self.data:08X}, "
+                    else:
+                        result = result + f"data=0x{self.data:X}, "
+                else:
+                    result = result + f"{field}={self.__getattribute__(field)}, "
+        while result[-1:] in (" ", ","):
+            result = result[:-1]
+        return result + ">"
+
 
 @typechecked
 class DaliInterface:
@@ -52,7 +75,7 @@ class DaliInterface:
         Args:
             max_queue_size (int, optional): Length of input queue for frames read from DALI bus.
                 Defaults to 40.
-            start_receive (bool, optional): Start a thread that reads DAL frames from the bus
+            start_receive (bool, optional): Start a thread that reads DALI frames from the bus
                 and transfers them into the input queue.
                 Defaults to True.
         """
