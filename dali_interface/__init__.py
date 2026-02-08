@@ -1,4 +1,7 @@
-# pylint: disable=missing-module-docstring
+"""
+DALI classes
+"""
+
 from .dali_interface import DaliFrame, DaliInterface, DaliStatus
 from .hid import DaliUsb
 from .mock import DaliMock

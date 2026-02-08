@@ -3,8 +3,7 @@
 import logging
 from typing import Final, Tuple
 
-# TODO(sven) actually serial is a bad name choice for this module as the serial interface uses the identical name
-import serial  # type: ignore
+import serial
 
 from .dali_interface import DaliFrame, DaliInterface, DaliStatus
 

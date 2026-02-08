@@ -106,7 +106,7 @@ class DaliUsb(DaliInterface):  # pylint: disable=too-many-instance-attributes
             self.device.set_configuration()
             usb.util.claim_interface(self.device, self.interface)
             cfg = self.device.get_active_configuration()
-            interface = cfg[(0, 0)]  # type: ignore
+            interface = cfg[(0, 0)]
 
             # get read and write endpoints
             ep_write = usb.util.find_descriptor(
@@ -142,7 +142,7 @@ class DaliUsb(DaliInterface):  # pylint: disable=too-many-instance-attributes
             super().__init__(start_receive=start_receive)
             try:
                 while True:
-                    self.ep_read.read(self.ep_read.wMaxPacketSize, timeout=10)  # type: ignore
+                    self.ep_read.read(self.ep_read.wMaxPacketSize, timeout=10)
                     logger.info("DALI interface - disregard pending messages")
             except Exception:
                 pass
