@@ -10,7 +10,33 @@ A common API for different hardware realizations of a DALI interface.
 * [Serial based SevenLab Hardware](https://github.com/SvenHaedrich/kicad_dali_usb_lpc)
 
 >[!NOTE]
->Using the serial interface on Windows may exhibit excessive latency. This can potentially be improved by tweaking the serial driver config.
+>Using the serial interface on Windows may exhibit excessive latency.
+>This can potentially be improved by tweaking the serial driver config.
+
+## HID-USB Support
+
+For the Lunatone USB adapter you need to copy the file `99-lunatone-dali.rules`
+into the `udev` folder and reload the `udev` rules.
+
+```shell
+    sudo cp 99-lunatone-dali.rules /etc/udev/rules.d/
+    sudo udevadm control --reload-rules
+```
+
+The provided `99-lunatone-dali.rules` file is configured by default with `MODE="0660"`
+(and typically `GROUP="dialout"`), so read/write access is restricted to users in
+the `dialout` group rather than granted to everyone. If you explicitly want world
+read/write access, you can change `MODE` to `0666` in the rules file.
+
+You can grant access to a specific user account by adding it to the `dialout` group.
+Note that some Linux distributions always require a per-user permission. To grant
+permission to a user named `<username>` execute:
+
+```shell
+    sudo usermod -a -G dialout <username>
+```
+
+You will have to log out and then back in for the group change to take effect.
 
 ## API
 
@@ -24,8 +50,6 @@ Transmits a DALI frame on the bus. All 8 bit frames are treated as backward fram
     def transmit(self, frame: DaliFrame, block: bool = False) -> None:
 ```
 
-**Parameters**
-
 * `frame` (DaliFrame): frame to transmit
 * `block` (bool, optional): wait for the end of transmission. Defaults to False.
 
@@ -37,15 +61,12 @@ Get the next DALI frame from the input queue.
     def get(self, timeout: float | None = None) -> DaliFrame:
 ```
 
-**Parameters**
+* `timeout` (float | None, optional): time in seconds before the call returns.
+Default is None (wait until halted).
 
-* `timeout` (float | None, optional): time in seconds before the call returns. Defaults to None (wait until halted).
+* **returns** `DaliFrame`: time out is indicated in the frame status
 
-**Returns**
-
-* `DaliFrame`: time out is indicated in the frame status
-
-### Query_Reply
+### Query Reply
 
 Transmit a DALI frame that is requesting a reply. Wait for either
 the replied data, or indicate a timeout.
@@ -54,30 +75,25 @@ the replied data, or indicate a timeout.
     def query_reply(self, request: DaliFrame) -> DaliFrame:
 ```
 
-**Parameters**
-
 * `request` (DaliFrame): DALI frame to transmit
-
-**Returns**
-
-* `DaliFrame`: the received reply, if no reply was received a frame with `DaliStatus:TIMEOUT` is returned
+* **returns** `DaliFrame`: the received reply.
+If no reply was received a frame with `DaliStatus:TIMEOUT` is returned
 
 ### Power
 
-Control a built in power supply. For now, this requires a Lunatone DALI USB 30 mA interface.
+Control a built in power supply. For now, this requires a Lunatone DALI USB 30 mA
+interface.
 
 ```python
     def power(self, power: bool = False) -> None:
 ```
 
-**Parameters**
-
 * `power` : new power setting: `True` for power on, `False` for power off
 
-#### DaliFrame
+### DaliFrame
 
 Class definition for DALI frames
 
-#### DaliStatus
+### DaliStatus
 
 Class definition for status of DALI frames
