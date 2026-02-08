@@ -144,13 +144,9 @@ class DaliInterface:
         try:
             rx_frame = self.queue.get(block=True, timeout=timeout)
         except queue.Empty:
-            return DaliFrame(
-                status=DaliStatus.TIMEOUT, message="queue is empty, timeout from get"
-            )
+            return DaliFrame(status=DaliStatus.TIMEOUT, message="queue is empty, timeout from get")
         if rx_frame is None:
-            return DaliFrame(
-                status=DaliStatus.GENERAL, message="received None from queue"
-            )
+            return DaliFrame(status=DaliStatus.GENERAL, message="received None from queue")
         logger.debug(f"return {rx_frame.message} - {rx_frame.length} - {rx_frame.data}")
         return rx_frame
 
