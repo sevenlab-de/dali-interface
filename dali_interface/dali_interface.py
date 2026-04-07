@@ -142,7 +142,6 @@ class DaliInterface:
         Returns:
             DaliFrame: time out is indicated in the frame status.
         """
-        logger.debug("get")
         if not self.keep_running:
             raise Exception("read thread is not running")
         try:
@@ -151,7 +150,6 @@ class DaliInterface:
             return DaliFrame(status=DaliStatus.TIMEOUT, message="queue is empty, timeout from get")
         if rx_frame is None:
             return DaliFrame(status=DaliStatus.GENERAL, message="received None from queue")
-        logger.debug(f"return {rx_frame.message} - {rx_frame.length} - {rx_frame.data}")
         return rx_frame
 
     @staticmethod
