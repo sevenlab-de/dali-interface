@@ -5,14 +5,12 @@ from typing import Final, Tuple
 
 # TODO(sven) actually serial is a bad name choice for this module as the serial interface uses the identical name
 import serial  # type: ignore
-from typeguard import typechecked  # pylint: disable=wrong-import-order
 
 from .dali_interface import DaliFrame, DaliInterface, DaliStatus
 
 logger = logging.getLogger(__name__)
 
 
-@typechecked
 class DaliSerial(DaliInterface):
     """Class for serial communication DALI interface."""
 

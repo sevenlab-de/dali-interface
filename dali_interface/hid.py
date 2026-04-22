@@ -7,14 +7,12 @@ import time
 from typing import Final, Generator
 
 import usb  # type: ignore
-from typeguard import typechecked
 
 from .dali_interface import DaliFrame, DaliInterface, DaliStatus
 
 logger = logging.getLogger(__name__)
 
 
-@typechecked
 class DaliUsb(DaliInterface):  # pylint: disable=too-many-instance-attributes
     """Class for USB connected DALI interface."""
 

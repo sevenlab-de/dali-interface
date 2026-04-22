@@ -7,8 +7,6 @@ import time
 from enum import IntEnum
 from typing import NamedTuple
 
-from typeguard import typechecked
-
 logger = logging.getLogger(__name__)
 
 
@@ -62,7 +60,6 @@ class DaliFrame(NamedTuple):
         return result + ">"
 
 
-@typechecked
 class DaliInterface:
     """Abstract DALI interface class."""
 
