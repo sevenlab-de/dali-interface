@@ -28,7 +28,7 @@ build-backend = "hatchling.build"
 source = "versioningit"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/dali_interface"]
+packages = ["dali_interface"]
 
 [tool.hatch.build.targets.sdist]
 exclude = [".github/"]
