@@ -40,6 +40,11 @@ class DaliFrame(NamedTuple):
     status: int = DaliStatus.OK
     message: str = "OK"
 
+    def __eq__(self, __value: object) -> bool:
+        if not isinstance(__value, DaliFrame):
+            return False
+        return self.length == __value.length and self.data == __value.data
+
     def __repr__(self) -> str:
         result = f"<{self.__class__.__module__}.{self.__class__.__name__} "
         for field in DaliFrame._fields:
