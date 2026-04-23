@@ -121,7 +121,11 @@ class DaliInterface:
     def flush_queue(self) -> None:
         """Flush the queue with DALI frames."""
         while not self.queue.empty():
-            self.queue.get()
+            try:
+                self.queue.get_nowait()
+            except queue.Empty:
+                continue
+            self.queue.task_done()
 
     def __read_worker_thread(self) -> None:
         """The read thread which is executed to read DALI frames from the interface."""
