@@ -19,8 +19,8 @@ For the Lunatone USB adapter you need to copy the file `99-lunatone-dali.rules`
 into the `udev` folder and reload the `udev` rules.
 
 ```shell
-    sudo cp 99-lunatone-dali.rules /etc/udev/rules.d/
-    sudo udevadm control --reload-rules
+sudo cp 99-lunatone-dali.rules /etc/udev/rules.d/
+sudo udevadm control --reload-rules
 ```
 
 The provided `99-lunatone-dali.rules` file is configured by default with `MODE="0660"`
@@ -33,10 +33,26 @@ Note that some Linux distributions always require a per-user permission. To gran
 permission to a user named `<username>` execute:
 
 ```shell
-    sudo usermod -a -G dialout <username>
+sudo usermod -a -G dialout <username>
 ```
 
 You will have to log out and then back in for the group change to take effect.
+
+## Samples
+
+One sample is provided to show the basic usage for the interface.
+
+### Blinky
+
+`blinky` makes all control gears connected to the interface's DALI bus change between off and maximum intensity.
+The loop continues until it is externally interrupted.
+The interface used is set by command line parameter.
+Supported are `serial`, `usb`, and `mock`.
+When `serial` is selected, a portname needs to be provided.
+
+```shell
+python blinky.py serial /dev/ttyUSB0
+```
 
 ## API
 
