@@ -151,7 +151,7 @@ class DaliSerial(DaliInterface):
 
     def read_data(self) -> None:
         """Read a line from the serial port."""
-        line = self.port.readline().decode("utf-8").strip()
+        line = self.port.readline().decode(encoding="ascii", errors="ignore").strip()
         if self.transparent:
             print(line, end="")
         if len(line) > 0:
@@ -166,7 +166,7 @@ class DaliSerial(DaliInterface):
     def transmit(self, frame: DaliFrame, block: bool = False) -> None:
         """Transmit a DALI frame via serial connector."""
         command_string = DaliSerial.build_command_string(frame, False)
-        self.port.write(command_string.encode("utf-8"))
+        self.port.write(command_string.encode(encoding="ascii"))
         if block:
             self._check_loopback(frame)
             if frame.send_twice:
@@ -176,7 +176,7 @@ class DaliSerial(DaliInterface):
         """Transmit a request DALI frame and wait for a reply frame."""
         self.flush_queue()
         command_string = DaliSerial.build_command_string(request, True)
-        self.port.write(command_string.encode("utf-8"))
+        self.port.write(command_string.encode(encoding="ascii"))
         self._check_loopback(request)
         if request.send_twice:
             self._check_loopback(request)
