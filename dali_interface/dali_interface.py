@@ -95,7 +95,7 @@ class DaliInterface:
         self.queue: queue.Queue[DaliFrame] = queue.Queue(maxsize=max_queue_size)
         self.keep_running = False
         if start_receive:
-            self.__start_receive()
+            self._start_receive()
 
     def __enter__(self) -> DaliInterface:
         """Access object via context manager"""
@@ -127,19 +127,19 @@ class DaliInterface:
                 continue
             self.queue.task_done()
 
-    def __read_worker_thread(self) -> None:
+    def _read_worker_thread(self) -> None:
         """The read thread which is executed to read DALI frames from the interface."""
         logger.debug("read_worker_thread started")
         while self.keep_running:
             self.read_data()
         logger.debug("read_worker_thread terminated")
 
-    def __start_receive(self) -> None:
+    def _start_receive(self) -> None:
         """Start the receive thread which fille the queue with DALI frames."""
         if not self.keep_running:
             logger.debug("start receive")
             self.keep_running = True
-            self.thread = threading.Thread(target=self.__read_worker_thread, args=())
+            self.thread = threading.Thread(target=self._read_worker_thread, args=())
             self.thread.daemon = True
             self.thread.start()
             self.flush_queue()
