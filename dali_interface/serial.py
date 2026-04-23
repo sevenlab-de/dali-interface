@@ -54,16 +54,19 @@ class DaliSerial(DaliInterface):
         try:
             # This only works on Posix systems.
             self.port.set_low_latency_mode(True)
-        except AttributeError:
-            # Not having low latency mode may result in degraded performance under
-            # Windows. That is still sufficient for some use-cases though and it's
+        except Exception:
+            # This can fail with various exceptions depending on operating system
+            # and interface configuration. So, we catch them all.
+            # Not having low latency mode may result in degraded performance.
+            # That is still sufficient for some use-cases though and it's
             # better than no support at all.
+            logger.warning("Failed to set low latency mode. Continue anyway.")
             pass
         self.transparent = transparent
         super().__init__(start_receive=start_receive)
 
     @staticmethod
-    def __get_status_and_last_error(  # pylint: disable=too-many-return-statements
+    def _get_status_and_last_error(  # pylint: disable=too-many-return-statements
         length: int, data: int, loopback: bool
     ) -> Tuple[int, str]:
         """Interpret received information."""
@@ -129,7 +132,7 @@ class DaliSerial(DaliInterface):
             loopback = payload[8] == ">"
             length = int(payload[9:11], 16)
             data = int(payload[12:20], 16)
-            status, message = DaliSerial.__get_status_and_last_error(length, data, loopback)
+            status, message = DaliSerial._get_status_and_last_error(length, data, loopback)
             return DaliFrame(
                 timestamp=timestamp,
                 length=length,
@@ -148,7 +151,7 @@ class DaliSerial(DaliInterface):
 
     def read_data(self) -> None:
         """Read a line from the serial port."""
-        line = self.port.readline().decode("utf-8").strip()
+        line = self.port.readline().decode(encoding="ascii", errors="ignore").strip()
         if self.transparent:
             print(line, end="")
         if len(line) > 0:
@@ -157,13 +160,13 @@ class DaliSerial(DaliInterface):
 
     def _check_loopback(self, frame: DaliFrame) -> None:
         loopback = self.get(DaliInterface.RECEIVE_TIMEOUT)
-        if loopback.status != DaliStatus.LOOPBACK or loopback.data != frame.data or loopback.length != loopback.length:
+        if loopback.status != DaliStatus.LOOPBACK or loopback.data != frame.data or loopback.length != frame.length:
             logger.error(f"unexpected loopback for frame {frame.data:X}")
 
     def transmit(self, frame: DaliFrame, block: bool = False) -> None:
         """Transmit a DALI frame via serial connector."""
         command_string = DaliSerial.build_command_string(frame, False)
-        self.port.write(command_string.encode("utf-8"))
+        self.port.write(command_string.encode(encoding="ascii"))
         if block:
             self._check_loopback(frame)
             if frame.send_twice:
@@ -173,7 +176,7 @@ class DaliSerial(DaliInterface):
         """Transmit a request DALI frame and wait for a reply frame."""
         self.flush_queue()
         command_string = DaliSerial.build_command_string(request, True)
-        self.port.write(command_string.encode("utf-8"))
+        self.port.write(command_string.encode(encoding="ascii"))
         self._check_loopback(request)
         if request.send_twice:
             self._check_loopback(request)
