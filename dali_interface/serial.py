@@ -54,10 +54,13 @@ class DaliSerial(DaliInterface):
         try:
             # This only works on Posix systems.
             self.port.set_low_latency_mode(True)
-        except AttributeError:
-            # Not having low latency mode may result in degraded performance under
-            # Windows. That is still sufficient for some use-cases though and it's
+        except Exception:
+            # This can fail with various exceptions depending on operating system
+            # and interface configuration. So, we catch them all.
+            # Not having low latency mode may result in degraded performance.
+            # That is still sufficient for some use-cases though and it's
             # better than no support at all.
+            logger.warning("Failed to set low latency mode. Continue anyway.")
             pass
         self.transparent = transparent
         super().__init__(start_receive=start_receive)
