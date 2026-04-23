@@ -1,17 +1,19 @@
-"""Abstract implementation of the DALI interface class."""
+"""Define the base classes exposed by DALI-interface"""
+
+from __future__ import annotations
 
 import logging
 import queue
 import threading
 import time
-from enum import IntEnum
+from enum import IntEnum, unique
 from typing import NamedTuple
-
-from typeguard import typechecked
+from types import TracebackType
 
 logger = logging.getLogger(__name__)
 
 
+@unique
 class DaliStatus(IntEnum):
     """Status for frames and events."""
 
@@ -62,7 +64,6 @@ class DaliFrame(NamedTuple):
         return result + ">"
 
 
-@typechecked
 class DaliInterface:
     """Abstract DALI interface class."""
 
@@ -75,20 +76,24 @@ class DaliInterface:
         Args:
             max_queue_size (int, optional): Length of input queue for frames read from DALI bus.
                 Defaults to 40.
-            start_receive (bool, optional): Start a thread that reads DALI frames from the bus
-                and transfers them into the input queue.
+            start_receive (bool, optional): Start a thread that reads DALI frames from the bus and transfers them into the input queue.
                 Defaults to True.
         """
-        self.queue: queue.Queue = queue.Queue(maxsize=max_queue_size)
+        self.queue: queue.Queue[DaliFrame] = queue.Queue(maxsize=max_queue_size)
         self.keep_running = False
         if start_receive:
             self.__start_receive()
 
-    def __enter__(self):
+    def __enter__(self) -> DaliInterface:
         """Access object via context manager"""
         return self
 
-    def __exit__(self, exc_type, exc_val, traceback):
+    def __exit__(
+        self,
+        exc_type_: type[BaseException] | None,
+        exc_val: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
         """Close object via context manager"""
         self.close()
 
@@ -105,7 +110,7 @@ class DaliInterface:
         while not self.queue.empty():
             self.queue.get()
 
-    def __read_worker_thread(self):
+    def __read_worker_thread(self) -> None:
         """The read thread which is executed to read DALI frames from the interface."""
         logger.debug("read_worker_thread started")
         while self.keep_running:
@@ -139,13 +144,9 @@ class DaliInterface:
         try:
             rx_frame = self.queue.get(block=True, timeout=timeout)
         except queue.Empty:
-            return DaliFrame(
-                status=DaliStatus.TIMEOUT, message="queue is empty, timeout from get"
-            )
+            return DaliFrame(status=DaliStatus.TIMEOUT, message="queue is empty, timeout from get")
         if rx_frame is None:
-            return DaliFrame(
-                status=DaliStatus.GENERAL, message="received None from queue"
-            )
+            return DaliFrame(status=DaliStatus.GENERAL, message="received None from queue")
         logger.debug(f"return {rx_frame.message} - {rx_frame.length} - {rx_frame.data}")
         return rx_frame
 
@@ -176,8 +177,7 @@ class DaliInterface:
             request (DaliFrame): frame to transmit
 
         Returns:
-            DaliFrame: the received reply, if no reply was received a
-                frame with DaliStatus:TIMEOUT is returned
+            DaliFrame: the received reply, if no reply was received a frame with DaliStatus:TIMEOUT is returned
         """
         raise NotImplementedError("subclass must implement query_reply")
 

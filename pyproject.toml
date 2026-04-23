@@ -3,12 +3,19 @@ name = "dali-interface"
 description = "A common API for different hardware realizations of a DALI interface."
 authors = [{ name = "Sven Hädrich", email = "sven.haedrich@sevenlab.de" }]
 readme = "README.md"
+requires-python = ">=3.10"
 license = "MIT"
 dynamic = ["version"]
+
 dependencies = [
-    "typeguard >= 4.4.4, < 5.0.0", # This library adheres to Semantic Versioning 2.0.
     "pyusb == 1.3.1",              # No information on versioning schema, using fixed version.
     "pyserial == 3.5",             # No information on versioning schema, using fixed version.
+]
+
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: Software Development :: Embedded Systems",
 ]
 
 [project.optional-dependencies]
@@ -17,8 +24,9 @@ dev = [
 ]
 
 [project.urls]
-source = "https://github.com/SvenHaedrich/dali_interface"
-issues = "https://github.com/SvenHaedrich/dali_interface"
+repository = "https://github.com/sevenlab-de/dali-interface"
+issues = "https://github.com/sevenlab-de/dali-interface/issues"
+changelog = "http://github.com/sevenlab-de/dali-interface/changelog.md"
 
 [build-system]
 requires = ["hatchling", "versioningit"]
@@ -28,9 +36,15 @@ build-backend = "hatchling.build"
 source = "versioningit"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/dali_interface"]
+packages = ["dali_interface"]
 
 [tool.hatch.build.targets.sdist]
 exclude = [".github/"]
 
 [tool.versioningit]
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint.pycodestyle]
+max-line-length = 120

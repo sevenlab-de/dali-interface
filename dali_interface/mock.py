@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 class DaliMock(DaliInterface):
     """Mock class for DALI interface."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize DALI mock interface."""
         super().__init__(start_receive=False)
         logger.debug("initialize mock interface")

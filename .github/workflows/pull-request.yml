@@ -1,0 +1,41 @@
+---
+name: Lint-Repo
+
+on: pull_request
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Lint-Repo
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+
+      - name: Install Linters
+        run: |
+          npm install -g markdownlint-cli
+          pip install ruff mypy
+
+      - name: Markdown formatting
+        if: always()
+        run: markdownlint .
+
+      - name: Python formatting
+        if: always()
+        run: ruff format --diff
+
+      - name: Python linting
+        if: always()
+        run: ruff check
+
+      - name: Python type checking
+        if: always()
+        run: mypy . --strict --install-types  --non-interactive

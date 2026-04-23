@@ -7,14 +7,12 @@ import time
 from typing import Final, Generator
 
 import usb  # type: ignore
-from typeguard import typechecked
 
 from .dali_interface import DaliFrame, DaliInterface, DaliStatus
 
 logger = logging.getLogger(__name__)
 
 
-@typechecked
 class DaliUsb(DaliInterface):  # pylint: disable=too-many-instance-attributes
     """Class for USB connected DALI interface."""
 
@@ -108,35 +106,27 @@ class DaliUsb(DaliInterface):  # pylint: disable=too-many-instance-attributes
             self.device.set_configuration()
             usb.util.claim_interface(self.device, self.interface)
             cfg = self.device.get_active_configuration()
-            interface = cfg[(0, 0)]  # type: ignore
+            interface = cfg[(0, 0)]
 
             # get read and write endpoints
             ep_write = usb.util.find_descriptor(
                 interface,
-                custom_match=lambda e: usb.util.endpoint_direction(e.bEndpointAddress)
-                == usb.util.ENDPOINT_OUT,
+                custom_match=lambda e: usb.util.endpoint_direction(e.bEndpointAddress) == usb.util.ENDPOINT_OUT,
             )
             assert ep_write is None or isinstance(ep_write, usb.core.Endpoint)
             self.ep_write = ep_write
             ep_read = usb.util.find_descriptor(
                 interface,
-                custom_match=lambda e: usb.util.endpoint_direction(e.bEndpointAddress)
-                == usb.util.ENDPOINT_IN,
+                custom_match=lambda e: usb.util.endpoint_direction(e.bEndpointAddress) == usb.util.ENDPOINT_IN,
             )
             assert ep_read is None or isinstance(ep_read, usb.core.Endpoint)
             self.ep_read = ep_read
             if not self.ep_read or not self.ep_write:
-                logger.info(
-                    f"could not determine read or write endpoint on {self.device}"
-                )
+                logger.info(f"could not determine read or write endpoint on {self.device}")
                 continue
 
-            logger.debug(
-                f"usb descriptor string[2]: {usb.util.get_string(self.device, 2)}"
-            )
-            self.integrated_power_supply = (
-                usb.util.get_string(self.device, 2) == "DALI USB with PS"
-            )
+            logger.debug(f"usb descriptor string[2]: {usb.util.get_string(self.device, 2)}")
+            self.integrated_power_supply = usb.util.get_string(self.device, 2) == "DALI USB with PS"
             if self.integrated_power_supply:
                 logger.debug("device has integrated power supply")
 
@@ -144,7 +134,7 @@ class DaliUsb(DaliInterface):  # pylint: disable=too-many-instance-attributes
             super().__init__(start_receive=start_receive)
             try:
                 while True:
-                    self.ep_read.read(self.ep_read.wMaxPacketSize, timeout=10)  # type: ignore
+                    self.ep_read.read(self.ep_read.wMaxPacketSize, timeout=10)
                     logger.info("DALI interface - disregard pending messages")
             except Exception:
                 pass
@@ -233,9 +223,7 @@ class DaliUsb(DaliInterface):  # pylint: disable=too-many-instance-attributes
         """Read frame or event from USB DALI interface-"""
         try:
             assert self.ep_read
-            usb_data = self.ep_read.read(
-                getattr(self.ep_read, "wMaxPacketSize"), timeout=100
-            )
+            usb_data = self.ep_read.read(getattr(self.ep_read, "wMaxPacketSize"), timeout=100)
             if usb_data:
                 read_type = usb_data[1]
                 self.receive_sequence_number = usb_data[8]
@@ -258,12 +246,7 @@ class DaliUsb(DaliInterface):  # pylint: disable=too-many-instance-attributes
                 elif read_type == self._USB_READ_TYPE_32BIT:
                     status = DaliStatus.FRAME
                     length = 32
-                    dali_data = (
-                        usb_data[5]
-                        + (usb_data[4] << 8)
-                        + (usb_data[3] << 16)
-                        + (usb_data[2] << 24)
-                    )
+                    dali_data = usb_data[5] + (usb_data[4] << 8) + (usb_data[3] << 16) + (usb_data[2] << 24)
                 elif read_type == self._USB_READ_TYPE_NO_FRAME:
                     status = DaliStatus.TIMEOUT
                     length = 0

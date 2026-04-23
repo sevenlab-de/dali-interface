@@ -3,16 +3,13 @@
 import logging
 from typing import Final, Tuple
 
-# TODO(sven) actually serial is a bad name choice for this module as the serial interface uses the identical name
-import serial  # type: ignore
-from typeguard import typechecked  # pylint: disable=wrong-import-order
+import serial
 
 from .dali_interface import DaliFrame, DaliInterface, DaliStatus
 
 logger = logging.getLogger(__name__)
 
 
-@typechecked
 class DaliSerial(DaliInterface):
     """Class for serial communication DALI interface."""
 
@@ -132,9 +129,7 @@ class DaliSerial(DaliInterface):
             loopback = payload[8] == ">"
             length = int(payload[9:11], 16)
             data = int(payload[12:20], 16)
-            status, message = DaliSerial.__get_status_and_last_error(
-                length, data, loopback
-            )
+            status, message = DaliSerial.__get_status_and_last_error(length, data, loopback)
             return DaliFrame(
                 timestamp=timestamp,
                 length=length,
@@ -162,11 +157,7 @@ class DaliSerial(DaliInterface):
 
     def _check_loopback(self, frame: DaliFrame) -> None:
         loopback = self.get(DaliInterface.RECEIVE_TIMEOUT)
-        if (
-            loopback.status != DaliStatus.LOOPBACK
-            or loopback.data != frame.data
-            or loopback.length != loopback.length
-        ):
+        if loopback.status != DaliStatus.LOOPBACK or loopback.data != frame.data or loopback.length != loopback.length:
             logger.error(f"unexpected loopback for frame {frame.data:X}")
 
     def transmit(self, frame: DaliFrame, block: bool = False) -> None:
