@@ -23,14 +23,12 @@ sudo cp 99-lunatone-dali.rules /etc/udev/rules.d/
 sudo udevadm control --reload-rules
 ```
 
-The provided `99-lunatone-dali.rules` file is configured by default with `MODE="0660"`
-(and typically `GROUP="dialout"`), so read/write access is restricted to users in
-the `dialout` group rather than granted to everyone. If you explicitly want world
-read/write access, you can change `MODE` to `0666` in the rules file.
+The provided `99-lunatone-dali.rules` file is configured by default with `MODE="0660"` (and typically `GROUP="dialout"`), so read/write access is restricted to users in the `dialout` group rather than granted to everyone.
+If you explicitly want world read/write access, you can change `MODE` to `0666` in the rules file.
 
 You can grant access to a specific user account by adding it to the `dialout` group.
-Note that some Linux distributions always require a per-user permission. To grant
-permission to a user named `<username>` execute:
+Note that some Linux distributions always require a per-user permission.
+To grant permission to a user named `<username>` execute:
 
 ```shell
 sudo usermod -a -G dialout <username>
@@ -76,6 +74,8 @@ The interface classes implement the following API functions.
 ### Transmit
 
 Transmits a DALI frame on the bus. All 8 bit frames are treated as backward frames.
+When called with `block = True`, this function waits for the transmission to finish and consumes its own loopback frame.
+With `block = False`, loopback frames remain in the `get`-Queue.
 
 ```python
 def transmit(self, frame: DaliFrame, block: bool = False) -> bool:
@@ -83,6 +83,8 @@ def transmit(self, frame: DaliFrame, block: bool = False) -> bool:
 
 * `frame` (DaliFrame): frame to transmit
 * `block` (bool, optional): wait for the end of transmission. Defaults to False.
+
+* **returns** `bool` : `True` for successful transmission, `False` timed out waiting for loopback.
 
 ### Get
 
@@ -99,8 +101,8 @@ Default is None (wait until halted).
 
 ### Query Reply
 
-Transmit a DALI frame that is requesting a reply. Wait for either
-the replied data, or indicate a timeout.
+Transmit a DALI frame that is requesting a reply. Wait for either the replied data, or indicate a timeout.
+Calling this function flushes the `get`-Queue.
 
 ```python
 def query_reply(self, request: DaliFrame) -> DaliFrame:
@@ -108,12 +110,11 @@ def query_reply(self, request: DaliFrame) -> DaliFrame:
 
 * `request` (DaliFrame): DALI frame to transmit
 * **returns** `DaliFrame`: the received reply.
-If no reply was received a frame with `DaliStatus:TIMEOUT` is returned
+If no reply was received a frame with `DaliStatus:TIMEOUT` is returned.
 
 ### Power
 
-Control a built in power supply. For now, this requires a Lunatone DALI USB 30 mA
-interface.
+Control a built in power supply. For now, this requires a Lunatone DALI USB 30 mA interface.
 
 ```python
 def power(self, power: bool = False) -> None:
