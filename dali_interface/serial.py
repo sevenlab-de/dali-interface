@@ -66,7 +66,7 @@ class DaliSerial(DaliInterface):
         super().__init__(start_receive=start_receive)
 
     @staticmethod
-    def __get_status_and_last_error(  # pylint: disable=too-many-return-statements
+    def _get_status_and_last_error(  # pylint: disable=too-many-return-statements
         length: int, data: int, loopback: bool
     ) -> Tuple[int, str]:
         """Interpret received information."""
@@ -132,7 +132,7 @@ class DaliSerial(DaliInterface):
             loopback = payload[8] == ">"
             length = int(payload[9:11], 16)
             data = int(payload[12:20], 16)
-            status, message = DaliSerial.__get_status_and_last_error(length, data, loopback)
+            status, message = DaliSerial._get_status_and_last_error(length, data, loopback)
             return DaliFrame(
                 timestamp=timestamp,
                 length=length,
