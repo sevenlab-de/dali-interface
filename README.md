@@ -40,7 +40,7 @@ You will have to log out and then back in for the group change to take effect.
 
 ## Samples
 
-One sample is provided to show the basic usage for the interface.
+Two samples are provided to show the basic usage for the interface.
 
 ### Blinky
 
@@ -54,6 +54,21 @@ When `serial` is selected, a portname needs to be provided.
 python blinky.py serial /dev/ttyUSB0
 ```
 
+### Query
+
+`query` queries control gears connected to the interface's DALI bus.
+The expected result is a YES backframe (0xFF) for the broadcast query (0xFF91).
+If no control gear on the bus has the short address 12 assigned, the second query will result in a timeout.
+
+The loop continues until it is externally interrupted.
+The interface used is set by command line parameter.
+Supported are `serial`, `usb`, and `mock`.
+When `serial` is selected, a portname needs to be provided.
+
+```shell
+python query.py usb
+```
+
 ## API
 
 The interface classes implement the following API functions.
@@ -63,7 +78,7 @@ The interface classes implement the following API functions.
 Transmits a DALI frame on the bus. All 8 bit frames are treated as backward frames.
 
 ```python
-    def transmit(self, frame: DaliFrame, block: bool = False) -> None:
+def transmit(self, frame: DaliFrame, block: bool = False) -> bool:
 ```
 
 * `frame` (DaliFrame): frame to transmit
@@ -74,7 +89,7 @@ Transmits a DALI frame on the bus. All 8 bit frames are treated as backward fram
 Get the next DALI frame from the input queue.
 
 ```python
-    def get(self, timeout: float | None = None) -> DaliFrame:
+def get(self, timeout: float | None = None) -> DaliFrame:
 ```
 
 * `timeout` (float | None, optional): time in seconds before the call returns.
@@ -88,7 +103,7 @@ Transmit a DALI frame that is requesting a reply. Wait for either
 the replied data, or indicate a timeout.
 
 ```python
-    def query_reply(self, request: DaliFrame) -> DaliFrame:
+def query_reply(self, request: DaliFrame) -> DaliFrame:
 ```
 
 * `request` (DaliFrame): DALI frame to transmit
@@ -101,7 +116,7 @@ Control a built in power supply. For now, this requires a Lunatone DALI USB 30 m
 interface.
 
 ```python
-    def power(self, power: bool = False) -> None:
+def power(self, power: bool = False) -> None:
 ```
 
 * `power` : new power setting: `True` for power on, `False` for power off
