@@ -5,7 +5,8 @@ from typing import Final, Tuple
 
 import serial
 
-from .dali_interface import DaliFrame, DaliInterface, DaliStatus
+from .dali_interface import DaliInterface
+from .frame import DaliFrame, DaliStatus
 from . import helper
 
 logger = logging.getLogger(__name__)
@@ -72,7 +73,7 @@ class DaliSerial(DaliInterface):
     @staticmethod
     def _get_status_and_last_error(  # pylint: disable=too-many-return-statements
         length: int, data: int, loopback: bool
-    ) -> Tuple[int, str]:
+    ) -> Tuple[DaliStatus, str]:
         """Interpret received information."""
         if 0 <= length <= DaliSerial._MAX_BIT_LENGTH:
             if loopback:

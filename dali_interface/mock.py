@@ -3,7 +3,8 @@
 import logging
 import time
 
-from .dali_interface import DaliFrame, DaliInterface, DaliStatus
+from .dali_interface import DaliInterface
+from .frame import DaliFrame, DaliStatus
 from . import helper
 
 logger = logging.getLogger(__name__)
@@ -14,12 +15,12 @@ class DaliMock(DaliInterface):
 
     def _transmit_locked(self, frame: DaliFrame, is_query: bool = False) -> None:
         """Mock transmission of DALI frame."""
-        print(build_command_string(frame, False))
+        print(helper.build_command_string(frame, is_query))
         return
 
     def query_reply(self, request: DaliFrame) -> DaliFrame:
         """Mock DALI frame query."""
-        print(DaliInterface.build_command_string(request, False))
+        print(helper.build_command_string(request, True))
         return DaliFrame(
             timestamp=time.time(),
             length=0,
