@@ -21,6 +21,8 @@ classifiers = [
 [project.optional-dependencies]
 dev = [
     "types-pyserial",
+    "pytest >= 9.0.0",
+    "pytest-mypy-plugins >= 4.0.2",
 ]
 
 [project.urls]
@@ -48,3 +50,6 @@ line-length = 120
 
 [tool.ruff.lint.pycodestyle]
 max-line-length = 120
+
+[tool.pyright]
+typeCheckingMode = "strict"
