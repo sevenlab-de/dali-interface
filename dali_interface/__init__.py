@@ -2,7 +2,8 @@
 DALI classes
 """
 
-from .dali_interface import DaliFrame, DaliInterface, DaliStatus
+from .frame import DaliFrame, DaliStatus
+from .dali_interface import DaliInterface
 from .hid import DaliUsb
 from .mock import DaliMock
 from .serial import DaliSerial

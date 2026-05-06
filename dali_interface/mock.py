@@ -3,7 +3,9 @@
 import logging
 import time
 
-from .dali_interface import DaliFrame, DaliInterface, DaliStatus
+from .dali_interface import DaliInterface
+from .frame import DaliFrame, DaliStatus
+from . import helper
 
 logger = logging.getLogger(__name__)
 
@@ -11,18 +13,14 @@ logger = logging.getLogger(__name__)
 class DaliMock(DaliInterface):
     """Mock class for DALI interface."""
 
-    def __init__(self) -> None:
-        """Initialize DALI mock interface."""
-        super().__init__(start_receive=False)
-        logger.debug("initialize mock interface")
-
-    def transmit(self, frame: DaliFrame, block: bool = False) -> None:
+    def _transmit_locked(self, frame: DaliFrame, is_query: bool = False) -> None:
         """Mock transmission of DALI frame."""
-        print(DaliInterface.build_command_string(frame, False))
+        print(helper.build_command_string(frame, is_query))
+        return
 
     def query_reply(self, request: DaliFrame) -> DaliFrame:
         """Mock DALI frame query."""
-        print(DaliInterface.build_command_string(request, False))
+        print(helper.build_command_string(request, True))
         return DaliFrame(
             timestamp=time.time(),
             length=0,
@@ -31,6 +29,6 @@ class DaliMock(DaliInterface):
             message="mock timeout",
         )
 
-    def read_data(self) -> None:
+    def read_frame(self) -> None:
         """Stub implementation."""
         raise NotImplementedError("Mock class has no read implementation")

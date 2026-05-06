@@ -6,83 +6,34 @@ import logging
 import queue
 import threading
 import time
-from enum import IntEnum, unique
-from typing import NamedTuple
 from types import TracebackType
 
+
+from .frame import DaliStatus, DaliFrame
+
 logger = logging.getLogger(__name__)
-
-
-@unique
-class DaliStatus(IntEnum):
-    """Status for frames and events."""
-
-    OK = 0
-    LOOPBACK = 1
-    FRAME = 2
-    TIMEOUT = 3
-    TIMING = 4
-    INTERFACE = 5
-    FAILURE = 6
-    RECOVER = 7
-    GENERAL = 8
-    UNDEFINED = 9
-
-
-class DaliFrame(NamedTuple):
-    """DALI frame object."""
-
-    timestamp: float = 0
-    length: int = 0
-    data: int = 0
-    priority: int = 2
-    send_twice: bool = False
-    status: int = DaliStatus.OK
-    message: str = "OK"
-
-    def __repr__(self) -> str:
-        result = f"<{self.__class__.__module__}.{self.__class__.__name__} "
-        for field in DaliFrame._fields:
-            # pylint: disable=no-member
-            if self.__getattribute__(field) != self._field_defaults[field]:
-                # pylint: enable=no-member
-                if field == "data":
-                    if self.length == 8:
-                        result = result + f"data=0x{self.data:02X}, "
-                    elif self.length == 16:
-                        result = result + f"data=0x{self.data:04X}, "
-                    elif self.length == 24:
-                        result = result + f"data=0x{self.data:06X}, "
-                    elif self.length == 32:
-                        result = result + f"data=0x{self.data:08X}, "
-                    else:
-                        result = result + f"data=0x{self.data:X}, "
-                else:
-                    result = result + f"{field}={self.__getattribute__(field)}, "
-        while result[-1:] in (" ", ","):
-            result = result[:-1]
-        return result + ">"
 
 
 class DaliInterface:
     """Abstract DALI interface class."""
 
     RECEIVE_TIMEOUT = 1
+    QUEUE_SIZE = 5
     SLEEP_FOR_THREAD_END = 0.001
+    DALI_BAUD = 1200
 
-    def __init__(self, max_queue_size: int = 40, start_receive: bool = True) -> None:
-        """Initialize DALI interface.
-
-        Args:
-            max_queue_size (int, optional): Length of input queue for frames read from DALI bus.
-                Defaults to 40.
-            start_receive (bool, optional): Start a thread that reads DALI frames from the bus and transfers them into the input queue.
-                Defaults to True.
-        """
-        self.queue: queue.Queue[DaliFrame] = queue.Queue(maxsize=max_queue_size)
+    def __init__(self) -> None:
+        """Initialize DALI interface."""
+        self.queue: queue.Queue[DaliFrame] = queue.Queue(maxsize=self.QUEUE_SIZE)
         self.keep_running = False
-        if start_receive:
-            self.__start_receive()
+        self.expected_response: DaliFrame | None = None
+        self.expected_response_event: threading.Event = threading.Event()
+        self.expected_twice = False
+        self.transmit_lock: threading.Lock = threading.Lock()
+        self.next_frame_not_earlier_than: float = 0.0
+        self.expect_reply = False
+        self.reply_timeout = 0.2
+        self._start_receive()
 
     def __enter__(self) -> DaliInterface:
         """Access object via context manager"""
@@ -101,28 +52,52 @@ class DaliInterface:
         """Stub for controlling a built-in power supply."""
         raise RuntimeError("subclass must implement power")
 
-    def read_data(self) -> None:
+    def read_frame(self) -> DaliFrame | None:
         """Stub for reading data needs to be overwritten by an implementation."""
-        raise NotImplementedError("subclass must implement read_data")
+        raise NotImplementedError("subclass must implement read_frame")
 
     def flush_queue(self) -> None:
         """Flush the queue with DALI frames."""
+        logger.debug("flush receive queue")
         while not self.queue.empty():
-            self.queue.get()
+            try:
+                self.queue.get_nowait()
+            except queue.Empty:
+                continue
+            self.queue.task_done()
 
-    def __read_worker_thread(self) -> None:
+    def _read_worker_thread(self) -> None:
         """The read thread which is executed to read DALI frames from the interface."""
         logger.debug("read_worker_thread started")
         while self.keep_running:
-            self.read_data()
+            try:
+                frame = self.read_frame()
+                if frame is None:
+                    continue
+                logger.debug(f"received: {frame}")
+                if frame == self.expected_response:
+                    if self.expected_twice:
+                        self.expected_twice = False
+                    else:
+                        self.expected_response = None
+                        self.expected_response_event.set()
+                else:
+                    if self.expect_reply or frame.status != DaliStatus.TIMEOUT:
+                        self.queue.put(frame, timeout=self.RECEIVE_TIMEOUT)
+            except queue.Full:
+                logger.warning("receive queue full, dropping frame")
+                pass
+            except NotImplementedError:
+                logger.warning("no valid read_frame implementation, terminate read_worker_thread")
+                self.keep_running = False
         logger.debug("read_worker_thread terminated")
 
-    def __start_receive(self) -> None:
-        """Start the receive thread which fille the queue with DALI frames."""
+    def _start_receive(self) -> None:
+        """Start the receive thread which fills the queue with DALI frames."""
         if not self.keep_running:
             logger.debug("start receive")
             self.keep_running = True
-            self.thread = threading.Thread(target=self.__read_worker_thread, args=())
+            self.thread = threading.Thread(target=self._read_worker_thread, args=())
             self.thread.daemon = True
             self.thread.start()
             self.flush_queue()
@@ -145,29 +120,54 @@ class DaliInterface:
             rx_frame = self.queue.get(block=True, timeout=timeout)
         except queue.Empty:
             return DaliFrame(status=DaliStatus.TIMEOUT, message="queue is empty, timeout from get")
-        if rx_frame is None:
-            return DaliFrame(status=DaliStatus.GENERAL, message="received None from queue")
-        logger.debug(f"return {rx_frame.message} - {rx_frame.length} - {rx_frame.data}")
         return rx_frame
 
-    @staticmethod
-    def build_command_string(frame: DaliFrame, is_query: bool) -> str:
-        """Build a command string for a frame to send via serial connector."""
-        if frame.length == 8:
-            return f"Y{frame.data:X}\r"
-        command = "Q" if is_query else "S"
-        twice = "+" if frame.send_twice else " "
-        return f"{command}{frame.priority} {frame.length:X}{twice}{frame.data:X}\r"
+    def _transmit_locked(self, frame: DaliFrame, is_query: bool = False) -> None:
+        """Raw transmission of a DALI frame, without flow control.
+           All 8 bit frames are treated as backward frames.
 
-    def transmit(self, frame: DaliFrame, block: bool = False) -> None:
+        Args:
+            frame (DaliFrame): frame to transmit
+            is_query (bool, optional): The serial interface can use the query feature to always generate an answer frame.
+                Defaults to False.
+        """
+        raise NotImplementedError("subclass must implement _transmit_locked")
+
+    def transmit(self, frame: DaliFrame, block: bool = False) -> bool:
         """Transmit a DALI frame. All 8 bit frames are treated as backward frames.
 
         Args:
             frame (DaliFrame): frame to transmit
             block (bool, optional): wait for the end of transmission.
                 Defaults to False.
+
+        Returns:
+            True: successful transmission
+            False: timeout while waiting for loopback
         """
-        raise NotImplementedError("subclass must implement transmit")
+        with self.transmit_lock:
+            logger.debug("lock acquired - start transmission")
+            now = time.monotonic()
+            if now < self.next_frame_not_earlier_than:
+                logger.debug(f"need to sleep for {self.next_frame_not_earlier_than - now} sec")
+                time.sleep(self.next_frame_not_earlier_than - now)
+
+            if block:
+                self.flush_queue()
+                self.expected_response_event.clear()
+                self.expected_response = frame
+                self.expected_twice = frame.send_twice
+
+            try:
+                self._transmit_locked(frame, self.expect_reply)
+                self.next_frame_not_earlier_than = time.monotonic() + ((frame.length + 1) / self.DALI_BAUD)
+
+                if block:
+                    return self.expected_response_event.wait(timeout=self.RECEIVE_TIMEOUT)
+                else:
+                    return True
+            finally:
+                self.expected_response = None
 
     def query_reply(self, request: DaliFrame) -> DaliFrame:
         """Transmit a DALI frame that is requesting a reply. Wait for either
@@ -179,7 +179,16 @@ class DaliInterface:
         Returns:
             DaliFrame: the received reply, if no reply was received a frame with DaliStatus:TIMEOUT is returned
         """
-        raise NotImplementedError("subclass must implement query_reply")
+        try:
+            self.expect_reply = True
+            success = self.transmit(request, block=True)
+            if not success:
+                raise TimeoutError("transmit timed out waiting for loopback")
+            logger.debug("read backframe")
+            result = self.get(timeout=self.reply_timeout)
+        finally:
+            self.expect_reply = False
+        return result
 
     def close(self) -> None:
         """Close the connection."""

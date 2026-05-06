@@ -19,24 +19,53 @@ For the Lunatone USB adapter you need to copy the file `99-lunatone-dali.rules`
 into the `udev` folder and reload the `udev` rules.
 
 ```shell
-    sudo cp 99-lunatone-dali.rules /etc/udev/rules.d/
-    sudo udevadm control --reload-rules
+sudo cp 99-lunatone-dali.rules /etc/udev/rules.d/
+sudo udevadm control --reload-rules
 ```
 
-The provided `99-lunatone-dali.rules` file is configured by default with `MODE="0660"`
-(and typically `GROUP="dialout"`), so read/write access is restricted to users in
-the `dialout` group rather than granted to everyone. If you explicitly want world
-read/write access, you can change `MODE` to `0666` in the rules file.
+The provided `99-lunatone-dali.rules` file is configured by default with `MODE="0660"` (and typically `GROUP="dialout"`), so read/write access is restricted to users in the `dialout` group rather than granted to everyone.
+If you explicitly want world read/write access, you can change `MODE` to `0666` in the rules file.
 
 You can grant access to a specific user account by adding it to the `dialout` group.
-Note that some Linux distributions always require a per-user permission. To grant
-permission to a user named `<username>` execute:
+Note that some Linux distributions always require a per-user permission.
+To grant permission to a user named `<username>` execute:
 
 ```shell
-    sudo usermod -a -G dialout <username>
+sudo usermod -a -G dialout <username>
 ```
 
 You will have to log out and then back in for the group change to take effect.
+
+## Samples
+
+Two samples are provided to show the basic usage for the interface.
+
+### Blinky
+
+`blinky` makes all control gears connected to the interface's DALI bus change between off and maximum intensity.
+The loop continues until it is externally interrupted.
+The interface used is set by command line parameter.
+Supported are `serial`, `usb`, and `mock`.
+When `serial` is selected, a portname needs to be provided.
+
+```shell
+python blinky.py serial /dev/ttyUSB0
+```
+
+### Query
+
+`query` queries control gears connected to the interface's DALI bus.
+The expected result is a YES backframe (0xFF) for the broadcast query (0xFF91).
+If no control gear on the bus has the short address 12 assigned, the second query will result in a timeout.
+
+The loop continues until it is externally interrupted.
+The interface used is set by command line parameter.
+Supported are `serial`, `usb`, and `mock`.
+When `serial` is selected, a portname needs to be provided.
+
+```shell
+python query.py usb
+```
 
 ## API
 
@@ -45,20 +74,24 @@ The interface classes implement the following API functions.
 ### Transmit
 
 Transmits a DALI frame on the bus. All 8 bit frames are treated as backward frames.
+When called with `block = True`, this function waits for the transmission to finish and consumes its own loopback frame.
+With `block = False`, loopback frames remain in the `get`-Queue.
 
 ```python
-    def transmit(self, frame: DaliFrame, block: bool = False) -> None:
+def transmit(self, frame: DaliFrame, block: bool = False) -> bool:
 ```
 
 * `frame` (DaliFrame): frame to transmit
 * `block` (bool, optional): wait for the end of transmission. Defaults to False.
+
+* **returns** `bool` : `True` for successful transmission, `False` timed out waiting for loopback.
 
 ### Get
 
 Get the next DALI frame from the input queue.
 
 ```python
-    def get(self, timeout: float | None = None) -> DaliFrame:
+def get(self, timeout: float | None = None) -> DaliFrame:
 ```
 
 * `timeout` (float | None, optional): time in seconds before the call returns.
@@ -68,24 +101,23 @@ Default is None (wait until halted).
 
 ### Query Reply
 
-Transmit a DALI frame that is requesting a reply. Wait for either
-the replied data, or indicate a timeout.
+Transmit a DALI frame that is requesting a reply. Wait for either the replied data, or indicate a timeout.
+Calling this function flushes the `get`-Queue.
 
 ```python
-    def query_reply(self, request: DaliFrame) -> DaliFrame:
+def query_reply(self, request: DaliFrame) -> DaliFrame:
 ```
 
 * `request` (DaliFrame): DALI frame to transmit
 * **returns** `DaliFrame`: the received reply.
-If no reply was received a frame with `DaliStatus:TIMEOUT` is returned
+If no reply was received a frame with `DaliStatus:TIMEOUT` is returned.
 
 ### Power
 
-Control a built in power supply. For now, this requires a Lunatone DALI USB 30 mA
-interface.
+Control a built in power supply. For now, this requires a Lunatone DALI USB 30 mA interface.
 
 ```python
-    def power(self, power: bool = False) -> None:
+def power(self, power: bool = False) -> None:
 ```
 
 * `power` : new power setting: `True` for power on, `False` for power off
