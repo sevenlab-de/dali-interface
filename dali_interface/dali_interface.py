@@ -37,7 +37,7 @@ class DaliFrame(NamedTuple):
     data: int = 0
     priority: int = 2
     send_twice: bool = False
-    status: int = DaliStatus.OK
+    status: DaliStatus = DaliStatus.OK
     message: str = "OK"
 
     def __repr__(self) -> str:
