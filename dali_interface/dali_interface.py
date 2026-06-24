@@ -17,16 +17,14 @@ logger = logging.getLogger(__name__)
 class DaliStatus(IntEnum):
     """Status for frames and events."""
 
-    OK = 0
-    LOOPBACK = 1
-    FRAME = 2
-    TIMEOUT = 3
-    TIMING = 4
-    INTERFACE = 5
-    FAILURE = 6
-    RECOVER = 7
-    GENERAL = 8
-    UNDEFINED = 9
+    OK = 0  # interface reports OK, no error condition detected
+    LOOPBACK = 1  # loopback frame - this is a frame that was sent and received back from the interface
+    FRAME = 2  # normal DALI frame
+    TIMEOUT = 3  # timeout occurred
+    TIMING = 4  # timing error within the DALI frame detected
+    INTERFACE = 5  # during operation an error occurred on the interface
+    FAILURE = 6  # failure condition on the DALI bus detected
+    RECOVER = 7  # DALI bus recovered (from failure)
 
 
 class DaliFrame(NamedTuple):
@@ -145,8 +143,6 @@ class DaliInterface:
             rx_frame = self.queue.get(block=True, timeout=timeout)
         except queue.Empty:
             return DaliFrame(status=DaliStatus.TIMEOUT, message="queue is empty, timeout from get")
-        if rx_frame is None:
-            return DaliFrame(status=DaliStatus.GENERAL, message="received None from queue")
         logger.debug(f"return {rx_frame.message} - {rx_frame.length} - {rx_frame.data}")
         return rx_frame
 

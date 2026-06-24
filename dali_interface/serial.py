@@ -109,10 +109,10 @@ class DaliSerial(DaliInterface):
             DaliSerial._COMMAND_BAD,
         ):
             return DaliStatus.INTERFACE, "ERROR: INTERFACE"
-        return DaliStatus.UNDEFINED, f"ERROR: CODE 0x{length:02X}"
+        return DaliStatus.INTERFACE, f"ERROR: CODE 0x{length:02X}"
 
     @staticmethod
-    def parse(line: str) -> DaliFrame:
+    def parse(line: str) -> DaliFrame | None:
         """parse a string into a DALI frame
 
         Args:
@@ -120,14 +120,14 @@ class DaliSerial(DaliInterface):
 
         Returns:
             DaliFrame: DALI frame
+            None: if no DALI information found, or if parsing failed
         """
         timestamp: float = 0
         length: int = 0
         data: int = 0
         try:
-            start = line.find("{") + 1
-            end = line.find("}")
-            payload = line[start:end]
+            payload = line.split("{")[1]
+            payload = payload.split("}")[0]
             timestamp = int(payload[0:8], 16) / 1000.0
             loopback = payload[8] == ">"
             length = int(payload[9:11], 16)
@@ -140,14 +140,10 @@ class DaliSerial(DaliInterface):
                 status=status,
                 message=message,
             )
+        except IndexError:
+            return None
         except ValueError:
-            return DaliFrame(
-                timestamp=timestamp,
-                length=length,
-                data=data,
-                status=DaliStatus.GENERAL,
-                message="value error",
-            )
+            return None
 
     def read_data(self) -> None:
         """Read a line from the serial port."""
@@ -156,7 +152,9 @@ class DaliSerial(DaliInterface):
             print(line, end="")
         if len(line) > 0:
             logger.debug(f"received line <{line}> from serial")
-            self.queue.put(self.parse(line))
+            frame = self.parse(line)
+            if frame is not None:
+                self.queue.put(frame)
 
     def _check_loopback(self, frame: DaliFrame) -> None:
         loopback = self.get(DaliInterface.RECEIVE_TIMEOUT)
