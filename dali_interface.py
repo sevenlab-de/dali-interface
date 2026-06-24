@@ -25,6 +25,7 @@ class DaliStatus(IntEnum):
     RECOVER = 7
     GENERAL = 8
     UNDEFINED = 9
+    NONE = 10
 
 
 class DaliFrame(NamedTuple):
@@ -35,7 +36,7 @@ class DaliFrame(NamedTuple):
     data: int = 0
     priority: int = 2
     send_twice: bool = False
-    status: int = DaliStatus.OK
+    status: DaliStatus = DaliStatus.OK
     message: str = "OK"
 
 

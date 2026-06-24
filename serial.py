@@ -120,6 +120,14 @@ class DaliSerial(DaliInterface):
         try:
             start = line.find("{") + 1
             end = line.find("}")
+            if (end - start) <= 0:
+                return DaliFrame(
+                    timestamp=timestamp,
+                    length=length,
+                    data=data,
+                    status=DaliStatus.NONE,
+                    message="no payload",
+                )
             payload = line[start:end]
             timestamp = int(payload[0:8], 16) / 1000.0
             loopback = payload[8] == ">"
