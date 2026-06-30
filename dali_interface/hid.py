@@ -259,7 +259,7 @@ class DaliUsb(DaliInterface):  # pylint: disable=too-many-instance-attributes
                     elif usb_data[5] == self._USB_STATUS_FRAME_ERROR:
                         status = DaliStatus.TIMING
                     else:
-                        status = DaliStatus.GENERAL
+                        status = DaliStatus.INTERFACE
                 else:
                     return
                 self.queue.put(
