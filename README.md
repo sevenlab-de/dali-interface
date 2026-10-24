@@ -55,6 +55,7 @@ def power(self, power: bool = False) -> None:
 ### DaliFrame
 
 Class definition for DALI frames.
+Two frames are equal if they have the same `length` and `data`; the other fields are not compared.
 
 ### DaliStatus
 

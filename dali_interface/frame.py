@@ -29,6 +29,21 @@ class DaliFrame(NamedTuple):
     status: DaliStatus = DaliStatus.OK
     message: str = "OK"
 
+    # A frame is never equal to another type. NotImplemented would fall back to the comparison of
+    # plain tuples, which compares all fields, while __hash__ only hashes length and data.
+    def __eq__(self, other: object, /) -> bool:
+        if not isinstance(other, DaliFrame):
+            return False
+        return self.length == other.length and self.data == other.data
+
+    def __ne__(self, other: object, /) -> bool:
+        if not isinstance(other, DaliFrame):
+            return True
+        return self.length != other.length or self.data != other.data
+
+    def __hash__(self) -> int:
+        return hash((self.length, self.data))
+
     def __repr__(self) -> str:
         result = f"<{self.__class__.__module__}.{self.__class__.__name__} "
         for field in DaliFrame._fields:
