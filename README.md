@@ -142,3 +142,24 @@ sudo usermod -a -G dialout <username>
 ```
 
 You will have to log out and then back in for the group change to take effect.
+
+## Tests
+
+The tests in `test/test_mock.py` need no hardware.
+All other tests are hardware-in-the-loop tests and need this setup:
+
+* a Lunatone DALI USB interface,
+* a SevenLab DALI serial adapter, by default at `/dev/ttyDALI`,
+* both connected to the same DALI bus, with a DALI bus power supply.
+
+No control gear or control device may be connected to the bus.
+The tests send arbitrary DALI commands, including broadcast configuration commands like SET SHORT ADDRESS, that change the configuration of connected devices.
+
+Run all tests with:
+
+```shell
+./run_hitl_local.sh
+```
+
+The script creates a virtual environment in `.venv`, installs the package with its development dependencies, and runs `pytest`.
+Arguments are passed on to `pytest`, for example `--serial-port /dev/ttyUSB1` to use another serial port.
