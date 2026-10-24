@@ -7,8 +7,11 @@ import queue
 import threading
 import time
 from enum import IntEnum, unique
-from typing import NamedTuple
 from types import TracebackType
+from typing import TYPE_CHECKING, NamedTuple
+
+if TYPE_CHECKING:
+    from typing_extensions import Self
 
 logger = logging.getLogger(__name__)
 
@@ -82,7 +85,7 @@ class DaliInterface:
         if start_receive:
             self.__start_receive()
 
-    def __enter__(self) -> DaliInterface:
+    def __enter__(self) -> Self:
         """Access object via context manager"""
         return self
 
@@ -138,7 +141,7 @@ class DaliInterface:
         """
         logger.debug("get")
         if not self.keep_running:
-            raise Exception("read thread is not running")
+            raise RuntimeError("read thread is not running")
         try:
             rx_frame = self.queue.get(block=True, timeout=timeout)
         except queue.Empty:

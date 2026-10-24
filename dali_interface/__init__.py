@@ -8,8 +8,8 @@ from .mock import DaliMock
 from .serial import DaliSerial
 
 __all__ = (
-    "DaliInterface",
     "DaliFrame",
+    "DaliInterface",
     "DaliMock",
     "DaliSerial",
     "DaliStatus",

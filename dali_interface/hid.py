@@ -1,10 +1,12 @@
 """Specific implementation of the DALI interface for Lunatone USB HID device."""
 
+import contextlib
 import errno
 import logging
 import struct
 import time
-from typing import Final, Generator
+from collections.abc import Generator
+from typing import Final
 
 import usb  # type: ignore
 
@@ -132,12 +134,10 @@ class DaliUsb(DaliInterface):  # pylint: disable=too-many-instance-attributes
 
             # read pending messages and discard
             super().__init__(start_receive=start_receive)
-            try:
+            with contextlib.suppress(usb.core.USBError):
                 while True:
                     self.ep_read.read(self.ep_read.wMaxPacketSize, timeout=10)
                     logger.info("DALI interface - disregard pending messages")
-            except Exception:
-                pass
             return
         # cleanup
         self.device = None
@@ -158,7 +158,7 @@ class DaliUsb(DaliInterface):  # pylint: disable=too-many-instance-attributes
         )
         bytes_written = self.ep_write.write(buffer)  # type: ignore
         if bytes_written != 64:
-            raise Exception("written {bytes_written} bytes, expected 64.")
+            raise OSError(f"written {bytes_written} bytes, expected 64.")
 
     def transmit(self, frame: DaliFrame, block: bool = False) -> None:
         """Transmit a DALI frame via USB interface."""
@@ -183,7 +183,7 @@ class DaliUsb(DaliInterface):  # pylint: disable=too-many-instance-attributes
             write_type = self._USB_WRITE_TYPE_8BIT
             logger.debug(f"time is now: {time.time()}")
         else:
-            raise Exception(
+            raise ValueError(
                 f"DALI frames for the USB device can be 8,16 or 24 bit long. This frame is {frame.length} bit long."
             )
 
@@ -203,12 +203,12 @@ class DaliUsb(DaliInterface):  # pylint: disable=too-many-instance-attributes
         )
         bytes_written = self.ep_write.write(buffer)  # type: ignore
         if bytes_written != 64:
-            raise Exception("written {bytes_written} bytes, expected 64.")
+            raise OSError(f"written {bytes_written} bytes, expected 64.")
         self.last_transmit = frame.data
 
         if block:
             if not self.keep_running:
-                raise Exception("receive must be active for blocking call to transmit.")
+                raise RuntimeError("receive must be active for blocking call to transmit.")
             while True:
                 self.get()
                 if self.receive_sequence_number >= self.send_sequence_number:
@@ -223,7 +223,7 @@ class DaliUsb(DaliInterface):  # pylint: disable=too-many-instance-attributes
         """Read frame or event from USB DALI interface-"""
         try:
             assert self.ep_read
-            usb_data = self.ep_read.read(getattr(self.ep_read, "wMaxPacketSize"), timeout=100)
+            usb_data = self.ep_read.read(self.ep_read.wMaxPacketSize, timeout=100)
             if usb_data:
                 read_type = usb_data[1]
                 self.receive_sequence_number = usb_data[8]
@@ -272,7 +272,7 @@ class DaliUsb(DaliInterface):  # pylint: disable=too-many-instance-attributes
                 )
         except usb.USBError as e:
             if e.errno not in (errno.ETIMEDOUT, errno.ENODEV):
-                raise e
+                raise
 
     def query_reply(self, request: DaliFrame) -> DaliFrame:
         """Send DALI frame and request a reply frame."""

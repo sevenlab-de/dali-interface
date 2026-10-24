@@ -1,7 +1,7 @@
 """Specific DALI interface implementation for SevenLab serial device."""
 
 import logging
-from typing import Final, Tuple
+from typing import Final
 
 import serial
 
@@ -54,21 +54,20 @@ class DaliSerial(DaliInterface):
         try:
             # This only works on Posix systems.
             self.port.set_low_latency_mode(True)
-        except Exception:
+        except Exception:  # noqa: BLE001
             # This can fail with various exceptions depending on operating system
             # and interface configuration. So, we catch them all.
             # Not having low latency mode may result in degraded performance.
             # That is still sufficient for some use-cases though and it's
             # better than no support at all.
             logger.warning("Failed to set low latency mode. Continue anyway.")
-            pass
         self.transparent = transparent
         super().__init__(start_receive=start_receive)
 
     @staticmethod
     def _get_status_and_last_error(  # pylint: disable=too-many-return-statements
         length: int, data: int, loopback: bool
-    ) -> Tuple[DaliStatus, str]:
+    ) -> tuple[DaliStatus, str]:
         """Interpret received information."""
         if 0 <= length <= DaliSerial._MAX_BIT_LENGTH:
             if loopback:
