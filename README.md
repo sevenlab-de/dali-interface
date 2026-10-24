@@ -9,13 +9,38 @@ The interface classes implement the following API functions.
 ### Transmit
 
 Transmits a DALI frame on the bus. All 8 bit frames are treated as backward frames.
+When called with `block = True`, this function waits for the transmission to finish and consumes its own loopback frame.
+With `block = False`, loopback frames remain in the `get`-Queue.
+
+A frame is transmitted only after the loopback of the previous frame was read, also when that frame was transmitted with `block = False`.
+The loopback is instantaneous on the DALI bus; only the communication with the interface and frames of other bus units delay it, see [Other bus units transmitting](#other-bus-units-transmitting).
 
 ```python
-def transmit(self, frame: DaliFrame, block: bool = False) -> None:
+def transmit(self, frame: DaliFrame, block: bool = False) -> bool:
 ```
 
 * `frame` (DaliFrame): frame to transmit
 * `block` (bool, optional): wait for the end of transmission. Defaults to False.
+
+* **returns** `bool` : `True` for successful transmission.
+With `block = True`, `False` if the interface reported neither the loopback nor another frame on the bus within `LOOPBACK_SUPERVISION_TIMEOUT`, or if it reported an error instead of the loopback.
+* **raises** `RuntimeError`: the receive thread does not run, for example after an error while reading from the interface.
+
+#### Other bus units transmitting
+
+If another bus unit transmits while a frame waits for the bus, the frame should rather be dropped, so the application can first react to the frame that came in.
+The supported interfaces cannot do that: they keep the frame and transmit it once the bus is idle for the settling time, after any number of frames of other bus units.
+Measured on the Lunatone DALI USB: while another bus unit kept the bus busy for 4 s, it waited and then transmitted its frame about 12 ms after the last frame.
+
+As a workaround, the library waits for the loopback as long as the bus is busy:
+
+* Frames of other bus units that the interface reports before the loopback go to the `get`-Queue, as received frames.
+* With each of them the supervision of the loopback starts again.
+* If the interface reports neither the loopback nor another frame within `LOOPBACK_SUPERVISION_TIMEOUT`, the interface failed.
+  151 ms: the settling time of priority 5 (21.1 ms, IEC 62386-101 Table 22), a 32 bit frame with stop condition (29.9 ms), plus 100 ms for the communication with the interface.
+* Anything else reported instead of the loopback, such as an interface error or a different loopback, is an error.
+
+So a transmission can take much longer than the frame itself on a busy bus, and frames of other bus units can arrive before the loopback of a frame transmitted with `block = False`.
 
 ### Get
 
@@ -30,17 +55,34 @@ Default is None (wait until halted).
 
 * **returns** `DaliFrame`: time out is indicated in the frame status
 
+All frames go through one receive queue, and `query_reply` reads its reply from that queue too.
+While `query_reply` runs in another thread, `get` can take the reply, and `query_reply` then returns `DaliStatus.INTERFACE`.
+So do not call `get` while a query runs in another thread.
+
 ### Query Reply
 
 Transmit a DALI frame that is requesting a reply. Wait for either the replied data, or indicate a timeout.
+Frames received before the request was seen on the bus, frames of other bus units included, are removed from the `get`-Queue, as they cannot be the reply.
 
 ```python
 def query_reply(self, request: DaliFrame) -> DaliFrame:
 ```
 
 * `request` (DaliFrame): DALI frame to transmit
-* **returns** `DaliFrame`: the received reply.
-If no reply was received a frame with `DaliStatus.TIMEOUT` is returned.
+* **returns** `DaliFrame`: the reply as reported by the interface, with one of these states:
+    * `DaliStatus.FRAME`: the backward frame.
+    * `DaliStatus.TIMING`: a corrupted backward frame.
+      If several bus units reply at the same time, their backward frames overlap.
+      According to IEC 62386-101 such a frame still counts as a backward frame, for example a YES from several control gears.
+    * `DaliStatus.TIMEOUT`: no backward frame within the reply window.
+    * `DaliStatus.INTERFACE`: the loopback of the request was not read (see [Transmit](#transmit)), the interface reported an error, or it reported neither a reply nor a timeout in time.
+
+The reply window is defined by IEC 62386-101 and is not configurable:
+a backward frame starts at most 12.4 ms after the end of the request, with a grey area up to 13.4 ms.
+The interface applies this timing as the DALI receiver and reports either the backward frame or a timeout.
+`query_reply` returns this result.
+If the interface reports neither within `REPLY_SUPERVISION_TIMEOUT` (123.3 ms: reply window, backward frame and stop condition, plus 100 ms for the interface to report to the host), the interface failed and `query_reply` returns `DaliStatus.INTERFACE`.
+This allowance for the interface does not extend the reply window on the bus.
 
 ### Power
 

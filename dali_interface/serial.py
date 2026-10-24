@@ -38,7 +38,6 @@ class DaliSerial(DaliInterface):
         portname: str,
         baudrate: int = DEFAULT_BAUDRATE,
         transparent: bool = False,
-        start_receive: bool = True,
     ) -> None:
         """open serial port for DALI communication
 
@@ -46,7 +45,6 @@ class DaliSerial(DaliInterface):
             portname (str): path to serial port
             baudrate (int, optional): baudrate. Defaults to DEFAULT_BAUDRATE.
             transparent (bool, optional): print echo to console. Defaults to False.
-            start_receive (bool, optional): start a receive thread. Defaults to True.
         """
         logger.debug("open serial port")
         self.port = serial.Serial(  # pylint: disable=no-member
@@ -63,7 +61,7 @@ class DaliSerial(DaliInterface):
             # better than no support at all.
             logger.warning("Failed to set low latency mode. Continue anyway.")
         self.transparent = transparent
-        super().__init__(start_receive=start_receive)
+        super().__init__()
 
     @staticmethod
     def _get_status_and_last_error(  # pylint: disable=too-many-return-statements
@@ -112,6 +110,15 @@ class DaliSerial(DaliInterface):
         return DaliStatus.INTERFACE, f"ERROR: CODE 0x{length:02X}"
 
     @staticmethod
+    def build_command_string(frame: DaliFrame, is_query: bool) -> str:
+        """Build the command string to send a frame via the serial adapter."""
+        if frame.length == 8:
+            return f"Y{frame.data:X}\r"
+        command = "Q" if is_query else "S"
+        twice = "+" if frame.send_twice else " "
+        return f"{command}{frame.priority} {frame.length:X}{twice}{frame.data:X}\r"
+
+    @staticmethod
     def parse(line: str) -> DaliFrame | None:
         """parse a string into a DALI frame
 
@@ -145,38 +152,24 @@ class DaliSerial(DaliInterface):
         except ValueError:
             return None
 
-    def read_data(self) -> None:
+    def read_frame(self) -> DaliFrame | None:
         """Read a line from the serial port."""
         line = self.port.readline().decode(encoding="ascii", errors="ignore").strip()
         if self.transparent:
             print(line, end="")
         if len(line) > 0:
             logger.debug(f"received line <{line}> from serial")
-            frame = self.parse(line)
-            if frame is not None:
-                self.queue.put(frame)
+            return self.parse(line)
+        return None
 
-    def _check_loopback(self, frame: DaliFrame) -> None:
-        loopback = self.get(DaliInterface.RECEIVE_TIMEOUT)
-        if loopback.status != DaliStatus.LOOPBACK or loopback != frame:
-            logger.error(f"unexpected loopback for frame {frame.data:X}")
-
-    def transmit(self, frame: DaliFrame, block: bool = False) -> None:
+    def _transmit_locked(self, frame: DaliFrame, is_query: bool = False) -> None:
         """Transmit a DALI frame via serial connector."""
-        command_string = DaliSerial.build_command_string(frame, False)
+        command_string = self.build_command_string(frame, is_query)
         self.port.write(command_string.encode(encoding="ascii"))
-        if block:
-            self._check_loopback(frame)
-            if frame.send_twice:
-                self._check_loopback(frame)
 
-    def query_reply(self, request: DaliFrame) -> DaliFrame:
-        """Transmit a request DALI frame and wait for a reply frame."""
-        self.flush_queue()
-        command_string = DaliSerial.build_command_string(request, True)
-        self.port.write(command_string.encode(encoding="ascii"))
-        self._check_loopback(request)
-        if request.send_twice:
-            self._check_loopback(request)
-        logger.debug("read backframe")
-        return self.get(timeout=DaliInterface.RECEIVE_TIMEOUT)
+    def close(self) -> None:
+        """
+        Close the serial port after closing the base class.
+        """
+        super().close()
+        self.port.close()
