@@ -143,6 +143,40 @@ sudo usermod -a -G dialout <username>
 
 You will have to log out and then back in for the group change to take effect.
 
+## Samples
+
+Two samples are provided to show the basic usage for the interface.
+
+### Blinky
+
+`blinky` switches all control gears on the DALI bus between maximum level and off.
+It sends the broadcast commands RECALL MAX LEVEL (0xFF05) and OFF (0xFF00) every 0.75 seconds.
+The loop continues until it is externally interrupted.
+The interface used is set by command line parameter.
+Supported are `serial`, `usb`, and `mock`.
+When `serial` is selected, a portname needs to be provided.
+
+```shell
+python example/blinky.py serial /dev/ttyUSB0
+```
+
+### Query
+
+`query` sends the query QUERY CONTROL GEAR PRESENT to all control gears (broadcast, 0xFF91) and to the control gear with short address 12 (0x1991).
+A control gear that receives the query answers with YES, a backward frame with the value 0xFF.
+So the broadcast query is answered if there is at least one control gear on the bus.
+The second query is answered only if a control gear has short address 12, otherwise it times out.
+If several control gears answer at the same time, their answers overlap and arrive as a corrupted frame, which still counts as an answer.
+
+The loop continues until it is externally interrupted.
+The interface used is set by command line parameter.
+Supported are `serial`, `usb`, and `mock`.
+When `serial` is selected, a portname needs to be provided.
+
+```shell
+python example/query.py usb
+```
+
 ## Tests
 
 The tests in `test/test_mock.py` need no hardware.
