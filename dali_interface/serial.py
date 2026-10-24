@@ -5,7 +5,8 @@ from typing import Final
 
 import serial
 
-from .dali_interface import DaliFrame, DaliInterface, DaliStatus
+from .dali_interface import DaliInterface
+from .frame import DaliFrame, DaliStatus
 
 logger = logging.getLogger(__name__)
 

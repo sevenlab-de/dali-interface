@@ -10,7 +10,8 @@ from typing import Final
 
 import usb  # type: ignore
 
-from .dali_interface import DaliFrame, DaliInterface, DaliStatus
+from .dali_interface import DaliInterface
+from .frame import DaliFrame, DaliStatus
 
 logger = logging.getLogger(__name__)
 
