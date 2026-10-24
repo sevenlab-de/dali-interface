@@ -21,6 +21,8 @@ class DaliUsb(DaliInterface):  # pylint: disable=too-many-instance-attributes
 
     _USB_VENDOR: Final[int] = 0x17B5
     _USB_PRODUCT: Final[int] = 0x0020
+    # minimum stop condition for receivers, IEC 62386-101 Table 18
+    _STOP_CONDITION: Final[float] = 0.0024
 
     _USB_CMD_INIT: Final[int] = 0x01
     _USB_CMD_BOOTLOADER: Final[int] = 0x02
@@ -225,6 +227,16 @@ class DaliUsb(DaliInterface):  # pylint: disable=too-many-instance-attributes
         super().close()
         usb.util.dispose_resources(self.device)
 
+    def _frame_start(self, length: int) -> float:
+        """Estimate the start of a frame that is reported now. The device reports a frame after its stop
+        condition, so subtract the duration of start bit, data bits and stop condition.
+        USB latency is not taken into account.
+        """
+        now = time.monotonic()
+        if length == 0:
+            return now
+        return now - (1 + length) / self.DALI_BAUD - self._STOP_CONDITION
+
     def _mark_loopback(self, frame: DaliFrame, sequence: int) -> DaliFrame:
         """Report our own frame as loopback.
 
@@ -290,7 +302,7 @@ class DaliUsb(DaliInterface):  # pylint: disable=too-many-instance-attributes
                 else:
                     return None
                 frame = DaliFrame(
-                    timestamp=time.time(),
+                    timestamp=self._frame_start(length),
                     length=length,
                     data=dali_data,
                     status=status,

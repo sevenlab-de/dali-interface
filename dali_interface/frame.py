@@ -19,7 +19,16 @@ class DaliStatus(IntEnum):
 
 
 class DaliFrame(NamedTuple):
-    """DALI frame object."""
+    """DALI frame object.
+
+    `timestamp` is the start of the frame in seconds. Each interface uses its own clock:
+    the serial interface the clock of the adapter, the USB interface and the mock `time.monotonic()`
+    of the host. So timestamps can only be compared between frames from the same interface.
+    For events without a frame, like a timeout, it is the time the event was reported.
+    Frames the library creates itself use `time.monotonic()` of the host for every interface:
+    the `DaliStatus.INTERFACE` results of `transmit` and `query_reply`. The `DaliStatus.TIMEOUT`
+    frame that `get` returns when its timeout expires has the timestamp 0.
+    """
 
     timestamp: float = 0
     length: int = 0

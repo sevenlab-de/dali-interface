@@ -99,6 +99,12 @@ def power(self, power: bool = False) -> None:
 Class definition for DALI frames.
 Two frames are equal if they have the same `length` and `data`; the other fields are not compared.
 
+`timestamp` is the start of the frame in seconds.
+Each interface uses its own clock: the serial interface the clock of the adapter, the USB interface and the mock `time.monotonic()` of the host.
+So timestamps can only be compared between frames from the same interface.
+Frames the library creates itself use `time.monotonic()` of the host for every interface: the `DaliStatus.INTERFACE` results of `transmit` and `query_reply`.
+The `DaliStatus.TIMEOUT` frame that `get` returns when its timeout expires has the timestamp 0.
+
 ### DaliStatus
 
 Class definition for status of DALI frames
