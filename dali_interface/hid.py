@@ -1,3 +1,11 @@
+# pyusb is not typed, so pyright cannot resolve any types. We're using strict typing
+# mode globally, which conflicts with that. For that reason we're locally disabling the
+# warnings about unknown types.
+# pyright: reportUnknownMemberType=false
+# pyright: reportUnknownVariableType=false
+# pyright: reportUnknownArgumentType=false
+# pyright: reportUnknownLambdaType=false
+
 """Specific implementation of the DALI interface for Lunatone USB HID device."""
 
 import contextlib
@@ -90,7 +98,7 @@ class DaliUsb(DaliInterface):  # pylint: disable=too-many-instance-attributes
         self.expected_loopback: tuple[int, DaliFrame, int] | None = None
 
         logger.debug("try to discover DALI interfaces")
-        devices = usb.core.find(find_all=True, idVendor=vendor, idProduct=product)
+        devices = usb.core.find(find_all=True, idVendor=vendor, idProduct=product)  # pyright: ignore
         # using find_all=True should always return a generator
         assert isinstance(devices, Generator)
         devices = list(devices)
@@ -115,7 +123,7 @@ class DaliUsb(DaliInterface):  # pylint: disable=too-many-instance-attributes
             self.device.set_configuration()
             usb.util.claim_interface(self.device, self.interface)
             cfg = self.device.get_active_configuration()
-            interface = cfg[(0, 0)]
+            interface = cfg[(0, 0)]  # pyright: ignore
 
             # get read and write endpoints
             ep_write = usb.util.find_descriptor(
@@ -142,7 +150,8 @@ class DaliUsb(DaliInterface):  # pylint: disable=too-many-instance-attributes
             # read pending messages and discard
             with contextlib.suppress(usb.core.USBError):
                 while True:
-                    self.ep_read.read(self.ep_read.wMaxPacketSize, timeout=10)
+                    # pyusb sets the descriptor fields at run time, so they are unknown to type checkers
+                    self.ep_read.read(getattr(self.ep_read, "wMaxPacketSize"), timeout=10)  # noqa: B009
                     logger.info("DALI interface - disregard pending messages")
             super().__init__()
             return
@@ -258,7 +267,7 @@ class DaliUsb(DaliInterface):  # pylint: disable=too-many-instance-attributes
         """Read frame or event from USB DALI interface-"""
         try:
             assert self.ep_read
-            usb_data = self.ep_read.read(self.ep_read.wMaxPacketSize, timeout=200)
+            usb_data = self.ep_read.read(getattr(self.ep_read, "wMaxPacketSize"), timeout=200)  # noqa: B009
             if usb_data:
                 read_type = usb_data[1]
                 logger.debug(
