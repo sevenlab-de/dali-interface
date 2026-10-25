@@ -21,7 +21,7 @@ Breaking changes:
   frame on the bus within 151 ms, or an error instead of the loopback.
 - Only one frame is in flight: `transmit` sends a frame after the loopback of the previous frame was read,
   also for frames transmitted with `block=False`. While other bus units transmit, the interfaces hold the frame
-  back; their frames go to the receive queue and the wait for the loopback continues (see README).
+  back; their frames go to the receive queue and the wait for the loopback continues.
 - `transmit`, `query_reply` and `get` raise `RuntimeError` when the receive thread stopped after an error.
 - `get` no longer returns the timeout events of the interfaces, except as the result of `query_reply`.
   The USB interface reported one after every frame. A frame with `DaliStatus.TIMEOUT` from `get` now
