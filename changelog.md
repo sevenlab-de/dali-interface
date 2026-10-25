@@ -1,6 +1,6 @@
 # Changelog for `dali-interface`
 
-## v2.0
+## v1.15
 
 Breaking changes:
 
