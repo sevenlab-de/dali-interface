@@ -105,6 +105,17 @@ So timestamps can only be compared between frames from the same interface.
 Frames the library creates itself use `time.monotonic()` of the host for every interface: the `DaliStatus.INTERFACE` results of `transmit` and `query_reply`.
 The `DaliStatus.TIMEOUT` frame that `get` returns when its timeout expires has the timestamp 0.
 
+Properties for the parts of a forward frame:
+
+| Property | 16 bit frame (IEC 62386-102) | 24 bit frame (IEC 62386-103) |
+|---|---|---|
+| `address_byte` | bits 15 to 8 | bits 23 to 16 |
+| `instance_byte` | – | bits 15 to 8 |
+| `opcode_byte` | bits 7 to 0 | bits 7 to 0 |
+| `number_nibble` | bits 3 to 0, the number in commands like GO TO SCENE | bits 3 to 0 |
+
+For frames of other lengths, and for `instance_byte` of a 16 bit frame, they raise `ValueError`.
+
 ### DaliStatus
 
 Class definition for status of DALI frames
