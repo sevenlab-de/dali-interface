@@ -20,18 +20,13 @@ class DaliSerial(DaliInterface):
     _TIMEOUT: Final[int] = 0x81
     _BAD_START_BIT_TIMING: Final[int] = 0x82
     _BAD_DATA_BIT_TIMING: Final[int] = 0x83
-    _COLLISION_LOOPBACK: Final[int] = 0x84
-    _COLLISION_NO_CHANGE: Final[int] = 0x85
-    _COLLISION_WRONG_STATE: Final[int] = 0x86
-    _SETTLING_TIME: Final[int] = 0x87
-    _SYSTEM_IDLE: Final[int] = 0x90
+    _CORRUPT_FRAME: Final[int] = 0x88
     _SYSTEM_FAILURE: Final[int] = 0x91
     _SYSTEM_RECOVERED: Final[int] = 0x92
     _COMMAND_NOT_PROCESSED: Final[int] = 0xA0
-    _COMMAND_BAD_ARGUMENT: Final[int] = 0xA1
     _QUEUE_IS_FULL: Final[int] = 0xA2
     _COMMAND_BAD: Final[int] = 0xA3
-    _BUFFER_OVERFLOW: Final[int] = 0xA4
+    _DALI_QUEUE_FULL: Final[int] = 0xA5
 
     def __init__(
         self,
@@ -90,21 +85,17 @@ class DaliSerial(DaliInterface):
                 DaliStatus.TIMING,
                 f"ERROR TIMING: DATA - BIT: {bit} - TIME: {timer_us} USEC",
             )
-        if length in (
-            DaliSerial._COLLISION_LOOPBACK,
-            DaliSerial._COLLISION_NO_CHANGE,
-            DaliSerial._COLLISION_WRONG_STATE,
-        ):
-            return DaliStatus.TIMING, "ERROR: COLLISION DETECTED"
+        if length == DaliSerial._CORRUPT_FRAME:
+            return DaliStatus.TIMING, "ERROR TIMING: CORRUPT FRAME"
         if length == DaliSerial._SYSTEM_FAILURE:
             return DaliStatus.FAILURE, "ERROR: SYSTEM FAILURE"
         if length == DaliSerial._SYSTEM_RECOVERED:
             return DaliStatus.RECOVER, "SYSTEM RECOVER"
         if length in (
             DaliSerial._COMMAND_NOT_PROCESSED,
-            DaliSerial._COMMAND_BAD_ARGUMENT,
             DaliSerial._QUEUE_IS_FULL,
             DaliSerial._COMMAND_BAD,
+            DaliSerial._DALI_QUEUE_FULL,
         ):
             return DaliStatus.INTERFACE, "ERROR: INTERFACE"
         return DaliStatus.INTERFACE, f"ERROR: CODE 0x{length:02X}"

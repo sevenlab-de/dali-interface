@@ -40,6 +40,8 @@ New features and fixes:
 - `DaliUsb` no longer reports an identical frame of another bus unit as its own loopback.
 - Frames received before a blocking `transmit` are kept in the receive queue.
 - Add hardware-in-the-loop tests and the examples `blinky` and `query`.
+- `DaliSerial` no longer knows the codes `0x84` to `0x87`, `0x90`, `0xA1` and `0xA4`; no firmware of the adapter reports them.
+  It reports `0x88`, a corrupt frame as sent by the logger sample of the Zephyr DALI driver, as `DaliStatus.TIMING`.
 
 ## v1.14
 
