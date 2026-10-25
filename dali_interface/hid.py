@@ -1,14 +1,25 @@
+# pyusb is not typed, so pyright cannot resolve any types. We're using strict typing
+# mode globally, which conflicts with that. For that reason we're locally disabling the
+# warnings about unknown types.
+# pyright: reportUnknownMemberType=false
+# pyright: reportUnknownVariableType=false
+# pyright: reportUnknownArgumentType=false
+# pyright: reportUnknownLambdaType=false
+
 """Specific implementation of the DALI interface for Lunatone USB HID device."""
 
+import contextlib
 import errno
 import logging
 import struct
 import time
-from typing import Final, Generator
+from collections.abc import Generator
+from typing import Final
 
 import usb  # type: ignore
 
-from .dali_interface import DaliFrame, DaliInterface, DaliStatus
+from .dali_interface import DaliInterface
+from .frame import DaliFrame, DaliStatus
 
 logger = logging.getLogger(__name__)
 
@@ -18,6 +29,8 @@ class DaliUsb(DaliInterface):  # pylint: disable=too-many-instance-attributes
 
     _USB_VENDOR: Final[int] = 0x17B5
     _USB_PRODUCT: Final[int] = 0x0020
+    # minimum stop condition for receivers, IEC 62386-101 Table 18
+    _STOP_CONDITION: Final[float] = 0.0024
 
     _USB_CMD_INIT: Final[int] = 0x01
     _USB_CMD_BOOTLOADER: Final[int] = 0x02
@@ -71,17 +84,21 @@ class DaliUsb(DaliInterface):  # pylint: disable=too-many-instance-attributes
         self,
         vendor: int = _USB_VENDOR,
         product: int = _USB_PRODUCT,
-        start_receive: bool = True,
     ) -> None:
-        """Initialise DALI USB interface."""
+        """Initialise DALI USB interface.
+
+        Args:
+            vendor (int, optional): USB vendor id. Defaults to _USB_VENDOR.
+            product (int, optional): USB product id. Defaults to _USB_PRODUCT.
+        """
         # lookup devices by _USB_VENDOR and _USB_PRODUCT
         self.interface = 0
         self.send_sequence_number = 1
-        self.receive_sequence_number = 0
-        self.last_transmit: int | None = None
+        # sequence number, frame and number of loopbacks still expected for the frame in flight
+        self.expected_loopback: tuple[int, DaliFrame, int] | None = None
 
         logger.debug("try to discover DALI interfaces")
-        devices = usb.core.find(find_all=True, idVendor=vendor, idProduct=product)
+        devices = usb.core.find(find_all=True, idVendor=vendor, idProduct=product)  # pyright: ignore
         # using find_all=True should always return a generator
         assert isinstance(devices, Generator)
         devices = list(devices)
@@ -106,7 +123,7 @@ class DaliUsb(DaliInterface):  # pylint: disable=too-many-instance-attributes
             self.device.set_configuration()
             usb.util.claim_interface(self.device, self.interface)
             cfg = self.device.get_active_configuration()
-            interface = cfg[(0, 0)]
+            interface = cfg[(0, 0)]  # pyright: ignore
 
             # get read and write endpoints
             ep_write = usb.util.find_descriptor(
@@ -131,15 +148,15 @@ class DaliUsb(DaliInterface):  # pylint: disable=too-many-instance-attributes
                 logger.debug("device has integrated power supply")
 
             # read pending messages and discard
-            super().__init__(start_receive=start_receive)
-            try:
+            with contextlib.suppress(usb.core.USBError):
                 while True:
-                    self.ep_read.read(self.ep_read.wMaxPacketSize, timeout=10)
+                    # pyusb sets the descriptor fields at run time, so they are unknown to type checkers
+                    self.ep_read.read(getattr(self.ep_read, "wMaxPacketSize"), timeout=10)  # noqa: B009
                     logger.info("DALI interface - disregard pending messages")
-            except Exception:
-                pass
+            super().__init__()
             return
         # cleanup
+
         self.device = None
         self.ep_read = None
         self.ep_write = None
@@ -158,12 +175,16 @@ class DaliUsb(DaliInterface):  # pylint: disable=too-many-instance-attributes
         )
         bytes_written = self.ep_write.write(buffer)  # type: ignore
         if bytes_written != 64:
-            raise Exception("written {bytes_written} bytes, expected 64.")
+            raise OSError(f"written {bytes_written} bytes, expected 64.")
 
-    def transmit(self, frame: DaliFrame, block: bool = False) -> None:
-        """Transmit a DALI frame via USB interface."""
+    def _transmit_locked(self, frame: DaliFrame, is_query: bool = False) -> None:
+        """Transmit a DALI frame via USB interface.
+        NOTE that the device checks for a backward frame after every transfer and reports a timeout event
+        if there is none. The base class passes these events on only as the result of `query_reply`.
+        """
         command = self._USB_CMD_SEND
-        self.send_sequence_number = (self.send_sequence_number + 1) & 0xFF
+        # frames from other bus units are reported with sequence number 0, so never use it
+        self.send_sequence_number = self.send_sequence_number % 0xFF + 1
         sequence = self.send_sequence_number
         control = self._USB_CTRL_TWICE if frame.send_twice else 0
         if frame.length == 24:
@@ -181,9 +202,8 @@ class DaliUsb(DaliInterface):  # pylint: disable=too-many-instance-attributes
             address_byte = 0x00
             opcode_byte = frame.data & 0xFF
             write_type = self._USB_WRITE_TYPE_8BIT
-            logger.debug(f"time is now: {time.time()}")
         else:
-            raise Exception(
+            raise ValueError(
                 f"DALI frames for the USB device can be 8,16 or 24 bit long. This frame is {frame.length} bit long."
             )
 
@@ -201,34 +221,57 @@ class DaliUsb(DaliInterface):  # pylint: disable=too-many-instance-attributes
             address_byte,
             opcode_byte,
         )
-        bytes_written = self.ep_write.write(buffer)  # type: ignore
-        if bytes_written != 64:
-            raise Exception("written {bytes_written} bytes, expected 64.")
-        self.last_transmit = frame.data
-
-        if block:
-            if not self.keep_running:
-                raise Exception("receive must be active for blocking call to transmit.")
-            while True:
-                self.get()
-                if self.receive_sequence_number >= self.send_sequence_number:
-                    return
+        # register the frame before writing, the receive thread can see its loopback before the write returns
+        self.expected_loopback = (sequence, frame, 2 if frame.send_twice else 1)
+        try:
+            bytes_written = self.ep_write.write(buffer)  # type: ignore
+            if bytes_written != 64:
+                raise OSError(f"written {bytes_written} bytes, expected 64.")
+        except BaseException:
+            self.expected_loopback = None
+            raise
 
     def close(self) -> None:
         """Close the connection to USB DALI interface."""
         super().close()
         usb.util.dispose_resources(self.device)
 
-    def read_data(self) -> None:  # pylint: disable=too-many-branches
+    def _frame_start(self, length: int) -> float:
+        """Estimate the start of a frame that is reported now. The device reports a frame after its stop
+        condition, so subtract the duration of start bit, data bits and stop condition.
+        USB latency is not taken into account.
+        """
+        now = time.monotonic()
+        if length == 0:
+            return now
+        return now - (1 + length) / self.DALI_BAUD - self._STOP_CONDITION
+
+    def _mark_loopback(self, frame: DaliFrame, sequence: int) -> DaliFrame:
+        """Report our own frame as loopback.
+
+        The device reports our own frame with the sequence number of the send command. A reply to
+        a query carries the same sequence number, so compare the content as well. The device also
+        reports an identical frame of another bus unit with the sequence number of its last command,
+        so accept only as many loopbacks as were transmitted.
+        """
+        expected = self.expected_loopback
+        if frame.status != DaliStatus.FRAME or expected is None:
+            return frame
+        expected_sequence, expected_frame, count = expected
+        if sequence != expected_sequence or frame != expected_frame:
+            return frame
+        self.expected_loopback = (expected_sequence, expected_frame, count - 1) if count > 1 else None
+        return frame._replace(status=DaliStatus.LOOPBACK)
+
+    def read_frame(self) -> DaliFrame | None:  # pylint: disable=too-many-branches
         """Read frame or event from USB DALI interface-"""
         try:
             assert self.ep_read
-            usb_data = self.ep_read.read(getattr(self.ep_read, "wMaxPacketSize"), timeout=100)
+            usb_data = self.ep_read.read(getattr(self.ep_read, "wMaxPacketSize"), timeout=200)  # noqa: B009
             if usb_data:
                 read_type = usb_data[1]
-                self.receive_sequence_number = usb_data[8]
                 logger.debug(
-                    f"DALI[IN]: SN=0x{usb_data[8]:02X} TY=0x{usb_data[1]:02X} "
+                    f"DALI<IN : SN=0x{usb_data[8]:02X} TY=0x{usb_data[1]:02X} "
                     f"EC=0x{usb_data[3]:02X} AD=0x{usb_data[4]:02X} OC=0x{usb_data[5]:02X}"
                 )
                 if read_type == self._USB_READ_TYPE_8BIT:
@@ -248,6 +291,11 @@ class DaliUsb(DaliInterface):  # pylint: disable=too-many-instance-attributes
                     length = 32
                     dali_data = usb_data[5] + (usb_data[4] << 8) + (usb_data[3] << 16) + (usb_data[2] << 24)
                 elif read_type == self._USB_READ_TYPE_NO_FRAME:
+                    # The device reports a missing backward frame after the answer window of
+                    # the frame with this sequence number. Events for earlier frames are stale.
+                    if usb_data[8] != self.send_sequence_number:
+                        logger.debug(f"drop stale timeout event for sequence number 0x{usb_data[8]:02X}")
+                        return None
                     status = DaliStatus.TIMEOUT
                     length = 0
                     dali_data = 0
@@ -261,22 +309,16 @@ class DaliUsb(DaliInterface):  # pylint: disable=too-many-instance-attributes
                     else:
                         status = DaliStatus.INTERFACE
                 else:
-                    return
-                self.queue.put(
-                    DaliFrame(
-                        timestamp=time.time(),
-                        length=length,
-                        data=dali_data,
-                        status=status,
-                    )
+                    return None
+                frame = DaliFrame(
+                    timestamp=self._frame_start(length),
+                    length=length,
+                    data=dali_data,
+                    status=status,
                 )
+                return self._mark_loopback(frame, usb_data[8])
         except usb.USBError as e:
+            logger.debug(f"usb: {e}")
             if e.errno not in (errno.ETIMEDOUT, errno.ENODEV):
-                raise e
-
-    def query_reply(self, request: DaliFrame) -> DaliFrame:
-        """Send DALI frame and request a reply frame."""
-        self.flush_queue()
-        self.transmit(request, True)
-        logger.debug("read backframe")
-        return self.get(timeout=DaliInterface.RECEIVE_TIMEOUT)
+                raise
+        return None

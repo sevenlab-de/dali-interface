@@ -18,11 +18,18 @@ jobs:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 1
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - run: |
+          pip install toml-to-requirements
+          toml-to-req --toml-file pyproject.toml --optional-lists dev
+          pip install -r requirements.txt
 
       - name: Install Linters
         run: |
           npm install -g markdownlint-cli
-          pip install ruff mypy
+          pip install ruff mypy pyright
 
       - name: Markdown formatting
         if: always()
@@ -36,6 +43,10 @@ jobs:
         if: always()
         run: ruff check
 
-      - name: Python type checking
+      - name: Python mypy type checking
         if: always()
         run: mypy . --strict --install-types  --non-interactive
+
+      - name: Python pyright type checking
+        if: always()
+        run: pyright
