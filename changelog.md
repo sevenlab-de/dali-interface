@@ -1,5 +1,14 @@
 # Changelog for `dali-interface`
 
+From v2.0.0 on, the versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html):
+MAJOR.MINOR.PATCH, where a change of MAJOR breaks the API, a change of MINOR adds to it,
+and a change of PATCH only fixes bugs.
+
+## v2.0.0
+
+- Semantic versioning, see above. The previous version was v1.15.
+- `DaliFrame` has the properties `address_byte`, `instance_byte`, `opcode_byte` and `number_nibble`.
+
 ## v1.15
 
 Breaking changes:
