@@ -53,6 +53,51 @@ class DaliFrame(NamedTuple):
     def __hash__(self) -> int:
         return hash((self.length, self.data))
 
+    @property
+    def address_byte(self) -> int:
+        """Address byte of a forward frame: bits 15 to 8 of a 16 bit frame (IEC 62386-102),
+        bits 23 to 16 of a 24 bit frame (IEC 62386-103).
+
+        Raises:
+            ValueError: the frame is neither 16 nor 24 bit long.
+        """
+        if self.length == 16:
+            return (self.data >> 8) & 0xFF
+        if self.length == 24:
+            return (self.data >> 16) & 0xFF
+        raise ValueError(f"a {self.length} bit frame has no address byte")
+
+    @property
+    def instance_byte(self) -> int:
+        """Instance byte of a 24 bit forward frame (IEC 62386-103): bits 15 to 8.
+
+        Raises:
+            ValueError: the frame is not 24 bit long.
+        """
+        if self.length == 24:
+            return (self.data >> 8) & 0xFF
+        raise ValueError(f"a {self.length} bit frame has no instance byte")
+
+    @property
+    def opcode_byte(self) -> int:
+        """Opcode byte of a 16 or 24 bit forward frame: bits 7 to 0.
+
+        Raises:
+            ValueError: the frame is neither 16 nor 24 bit long.
+        """
+        if self.length in (16, 24):
+            return self.data & 0xFF
+        raise ValueError(f"a {self.length} bit frame has no opcode byte")
+
+    @property
+    def number_nibble(self) -> int:
+        """Lower 4 bits of the opcode byte, the number in commands like GO TO SCENE.
+
+        Raises:
+            ValueError: the frame is neither 16 nor 24 bit long.
+        """
+        return self.opcode_byte & 0x0F
+
     def __repr__(self) -> str:
         result = f"<{self.__class__.__module__}.{self.__class__.__name__} "
         for field in DaliFrame._fields:

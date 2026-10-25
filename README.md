@@ -13,7 +13,8 @@ When called with `block = True`, this function waits for the transmission to fin
 With `block = False`, loopback frames remain in the `get`-Queue.
 
 A frame is transmitted only after the loopback of the previous frame was read, also when that frame was transmitted with `block = False`.
-The loopback is instantaneous on the DALI bus; only the communication with the interface and frames of other bus units delay it, see [Other bus units transmitting](#other-bus-units-transmitting).
+The loopback is instantaneous on the DALI bus; only the communication with the interface and frames of other bus units delay it.
+While other bus units transmit, the interface holds the frame back, and their frames go to the `get`-Queue.
 
 ```python
 def transmit(self, frame: DaliFrame, block: bool = False) -> bool:
@@ -25,22 +26,6 @@ def transmit(self, frame: DaliFrame, block: bool = False) -> bool:
 * **returns** `bool` : `True` for successful transmission.
 With `block = True`, `False` if the interface reported neither the loopback nor another frame on the bus within `LOOPBACK_SUPERVISION_TIMEOUT`, or if it reported an error instead of the loopback.
 * **raises** `RuntimeError`: the receive thread does not run, for example after an error while reading from the interface.
-
-#### Other bus units transmitting
-
-If another bus unit transmits while a frame waits for the bus, the frame should rather be dropped, so the application can first react to the frame that came in.
-The supported interfaces cannot do that: they keep the frame and transmit it once the bus is idle for the settling time, after any number of frames of other bus units.
-Measured on the Lunatone DALI USB: while another bus unit kept the bus busy for 4 s, it waited and then transmitted its frame about 12 ms after the last frame.
-
-As a workaround, the library waits for the loopback as long as the bus is busy:
-
-* Frames of other bus units that the interface reports before the loopback go to the `get`-Queue, as received frames.
-* With each of them the supervision of the loopback starts again.
-* If the interface reports neither the loopback nor another frame within `LOOPBACK_SUPERVISION_TIMEOUT`, the interface failed.
-  151 ms: the settling time of priority 5 (21.1 ms, IEC 62386-101 Table 22), a 32 bit frame with stop condition (29.9 ms), plus 100 ms for the communication with the interface.
-* Anything else reported instead of the loopback, such as an interface error or a different loopback, is an error.
-
-So a transmission can take much longer than the frame itself on a busy bus, and frames of other bus units can arrive before the loopback of a frame transmitted with `block = False`.
 
 ### Get
 
@@ -104,6 +89,17 @@ Each interface uses its own clock: the serial interface the clock of the adapter
 So timestamps can only be compared between frames from the same interface.
 Frames the library creates itself use `time.monotonic()` of the host for every interface: the `DaliStatus.INTERFACE` results of `transmit` and `query_reply`.
 The `DaliStatus.TIMEOUT` frame that `get` returns when its timeout expires has the timestamp 0.
+
+Properties for the parts of a forward frame:
+
+| Property | 16 bit frame (IEC 62386-102) | 24 bit frame (IEC 62386-103) |
+| --- | --- | --- |
+| `address_byte` | bits 15 to 8 | bits 23 to 16 |
+| `instance_byte` | – | bits 15 to 8 |
+| `opcode_byte` | bits 7 to 0 | bits 7 to 0 |
+| `number_nibble` | bits 3 to 0, the number in commands like GO TO SCENE | bits 3 to 0 |
+
+For frames of other lengths, and for `instance_byte` of a 16 bit frame, they raise `ValueError`.
 
 ### DaliStatus
 

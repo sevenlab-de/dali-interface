@@ -1,5 +1,14 @@
 # Changelog for `dali-interface`
 
+From v2.0.0 on, the versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html):
+MAJOR.MINOR.PATCH, where a change of MAJOR breaks the API, a change of MINOR adds to it,
+and a change of PATCH only fixes bugs.
+
+## v2.0.0
+
+- Semantic versioning, see above. The previous version was v1.15.
+- `DaliFrame` has the properties `address_byte`, `instance_byte`, `opcode_byte` and `number_nibble`.
+
 ## v1.15
 
 Breaking changes:
@@ -12,7 +21,7 @@ Breaking changes:
   frame on the bus within 151 ms, or an error instead of the loopback.
 - Only one frame is in flight: `transmit` sends a frame after the loopback of the previous frame was read,
   also for frames transmitted with `block=False`. While other bus units transmit, the interfaces hold the frame
-  back; their frames go to the receive queue and the wait for the loopback continues (see README).
+  back; their frames go to the receive queue and the wait for the loopback continues.
 - `transmit`, `query_reply` and `get` raise `RuntimeError` when the receive thread stopped after an error.
 - `get` no longer returns the timeout events of the interfaces, except as the result of `query_reply`.
   The USB interface reported one after every frame. A frame with `DaliStatus.TIMEOUT` from `get` now
