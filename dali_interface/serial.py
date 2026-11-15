@@ -34,12 +34,15 @@ class DaliSerial(DaliInterface):
         baudrate: int = DEFAULT_BAUDRATE,
         transparent: bool = False,
     ) -> None:
-        """open serial port for DALI communication
+        """Open the serial port of the SevenLab DALI adapter and start receiving.
 
         Args:
-            portname (str): path to serial port
-            baudrate (int, optional): baudrate. Defaults to DEFAULT_BAUDRATE.
-            transparent (bool, optional): print echo to console. Defaults to False.
+            portname (str): path to the serial port.
+            baudrate (int, optional): baud rate. Defaults to DEFAULT_BAUDRATE.
+            transparent (bool, optional): print the lines received from the adapter. Defaults to False.
+
+        Raises:
+            serial.SerialException: the serial port cannot be opened.
         """
         logger.debug("open serial port")
         self.port = serial.Serial(  # pylint: disable=no-member
