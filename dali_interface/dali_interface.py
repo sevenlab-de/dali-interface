@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import atexit
 import logging
 import queue
 import threading
@@ -190,6 +191,7 @@ class DaliInterface:
             self.thread = threading.Thread(target=self._read_worker_thread, args=())
             self.thread.daemon = True
             self.thread.start()
+            atexit.register(self._close_at_exit)
             self.flush_queue()
 
     def get(self, timeout: float | None = None) -> DaliFrame:
@@ -355,6 +357,7 @@ class DaliInterface:
     def close(self) -> None:
         """Close the connection."""
         logger.debug("tear down connection")
+        atexit.unregister(self._close_at_exit)
         if not self.keep_running:
             logger.debug("read thread is not running")
             return
@@ -362,3 +365,8 @@ class DaliInterface:
         while self.thread.is_alive():
             time.sleep(DaliInterface.SLEEP_FOR_THREAD_END)
         logger.debug("connection closed, thread terminated")
+
+    def _close_at_exit(self) -> None:
+        """Close the interface the application left open when the interpreter exits."""
+        logger.debug(f"close {type(self).__name__} left open at exit")
+        self.close()

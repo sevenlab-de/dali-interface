@@ -6,6 +6,42 @@ A common API for different hardware realizations of a DALI interface.
 
 The interface classes implement the following API functions.
 
+### Create
+
+Each interface class opens its device when it is created and starts a thread that reads the frames from the bus.
+
+```python
+DaliSerial(portname: str, baudrate: int = 500000, transparent: bool = False)
+DaliUsb(vendor: int = 0x17B5, product: int = 0x0020)
+```
+
+* `portname` (str): serial port of the SevenLab adapter, for example `/dev/ttyUSB0`
+* `baudrate` (int, optional): baud rate of the serial port. Defaults to 500000.
+* `transparent` (bool, optional): print the lines received from the adapter. Defaults to False.
+* `vendor`, `product` (int, optional): USB ids of the interface. Defaults to the Lunatone DALI USB.
+  With several matching devices, the first usable one is taken.
+
+* **raises** `serial.SerialException`: the serial port cannot be opened.
+* **raises** `usb.core.USBError`: no DALI USB interface was found.
+
+### Close
+
+Stop the receive thread and release the device.
+
+```python
+def close(self) -> None:
+```
+
+The interfaces are context managers, `with` closes them at the end of the block:
+
+```python
+with DaliUsb() as dali:
+    dali.transmit(DaliFrame(length=16, data=0xFF05))
+```
+
+An interface that is still open when the interpreter exits is closed then, also after an uncaught exception.
+This does not happen when the process is killed, so close the interfaces in the application.
+
 ### Transmit
 
 Transmits a DALI frame on the bus. All 8 bit frames are treated as backward frames.
@@ -85,7 +121,7 @@ Class definition for DALI frames.
 Two frames are equal if they have the same `length` and `data`; the other fields are not compared.
 
 `timestamp` is the start of the frame in seconds.
-Each interface uses its own clock: the serial interface the clock of the adapter, the USB interface and the mock `time.monotonic()` of the host.
+Each interface uses its own clock: the serial interface the clock of the adapter, the USB interface `time.monotonic()` of the host.
 So timestamps can only be compared between frames from the same interface.
 Frames the library creates itself use `time.monotonic()` of the host for every interface: the `DaliStatus.INTERFACE` results of `transmit` and `query_reply`.
 The `DaliStatus.TIMEOUT` frame that `get` returns when its timeout expires has the timestamp 0.
@@ -149,7 +185,7 @@ Two samples are provided to show the basic usage for the interface.
 It sends the broadcast commands RECALL MAX LEVEL (0xFF05) and OFF (0xFF00) every 0.75 seconds.
 The loop continues until it is externally interrupted.
 The interface used is set by command line parameter.
-Supported are `serial`, `usb`, and `mock`.
+Supported are `serial` and `usb`.
 When `serial` is selected, a portname needs to be provided.
 
 ```shell
@@ -166,7 +202,7 @@ If several control gears answer at the same time, their answers overlap and arri
 
 The loop continues until it is externally interrupted.
 The interface used is set by command line parameter.
-Supported are `serial`, `usb`, and `mock`.
+Supported are `serial` and `usb`.
 When `serial` is selected, a portname needs to be provided.
 
 ```shell
@@ -175,8 +211,7 @@ python example/query.py usb
 
 ## Tests
 
-The tests in `test/test_mock.py` need no hardware.
-All other tests are hardware-in-the-loop tests and need this setup:
+The tests in `test/test_hitl_basic.py` are hardware-in-the-loop tests and need this setup:
 
 * a Lunatone DALI USB interface,
 * a SevenLab DALI serial adapter, by default at `/dev/ttyDALI`,

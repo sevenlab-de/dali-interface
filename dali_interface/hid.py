@@ -85,11 +85,14 @@ class DaliUsb(DaliInterface):  # pylint: disable=too-many-instance-attributes
         vendor: int = _USB_VENDOR,
         product: int = _USB_PRODUCT,
     ) -> None:
-        """Initialise DALI USB interface.
+        """Open the first usable DALI USB interface and start receiving.
 
         Args:
             vendor (int, optional): USB vendor id. Defaults to _USB_VENDOR.
             product (int, optional): USB product id. Defaults to _USB_PRODUCT.
+
+        Raises:
+            usb.core.USBError: no DALI USB interface was found.
         """
         # lookup devices by _USB_VENDOR and _USB_PRODUCT
         self.interface = 0

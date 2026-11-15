@@ -4,6 +4,12 @@ From v2.0.0 on, the versions follow [Semantic Versioning](https://semver.org/spe
 MAJOR.MINOR.PATCH, where a change of MAJOR breaks the API, a change of MINOR adds to it,
 and a change of PATCH only fixes bugs.
 
+## v2.0.1
+
+- Interfaces the application did not close are closed when the interpreter exits. Before, a program that
+  ended without `close()`, for example after an exception, crashed with a segmentation fault with `DaliUsb`:
+  its receive thread was still inside libusb when pyusb released libusb at exit.
+
 ## v2.0.0
 
 - Semantic versioning, see above. The previous version was v1.15.
